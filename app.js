@@ -1,28 +1,25 @@
-const KEY="select_record_shared_v4";
+const KEY="select_record_shared_v5";
+const LEGACY_KEYS=["select_record_shared_v4","select_record_shared_v3","select_record_web_v2","select_record_web_v1"];
 let data={groups:[],choices:[],records:[]};
 
+function uid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():"id_"+Date.now()+"_"+Math.random().toString(36).slice(2)}
+function normalize(raw){
+  if(!raw||typeof raw!=="object")return null;
+  const out={groups:[],choices:[],records:[]};
+  if(Array.isArray(raw.groups))raw.groups.forEach(g=>{if(!g)return;const group={id:String(g.id||uid()),name:String(g.name||"無題のグループ")};if(!out.groups.some(x=>x.id===group.id))out.groups.push(group);if(Array.isArray(g.choices))g.choices.forEach(c=>{if(c)out.choices.push({id:String(c.id||uid()),name:String(c.name||""),image:c.image||null})})});
+  if(Array.isArray(raw.choices))raw.choices.forEach(c=>{if(c)out.choices.push({id:String(c.id||uid()),name:String(c.name||""),image:c.image||null})});
+  if(Array.isArray(raw.records))raw.records.forEach(r=>{if(r)out.records.push({id:String(r.id||uid()),groupId:String(r.groupId||""),groupName:String(r.groupName||""),choiceName:String(r.choiceName||r.name||r.choice||""),date:r.date||r.createdAt||new Date().toISOString()})});
+  out.groups=out.groups.filter((g,i,a)=>a.findIndex(x=>x.id===g.id||x.name===g.name)===i);
+  out.choices=out.choices.filter(c=>c.name).filter((c,i,a)=>a.findIndex(x=>x.name===c.name)===i);
+  return out;
+}
+function merge(base,add){if(!add)return;add.groups.forEach(g=>{if(!base.groups.some(x=>x.id===g.id||x.name===g.name))base.groups.push(g)});add.choices.forEach(c=>{const same=base.choices.find(x=>x.id===c.id||x.name===c.name);if(!same)base.choices.push(c);else if(!same.image&&c.image)same.image=c.image});add.records.forEach(r=>{if(!base.records.some(x=>x.id===r.id))base.records.push(r)})}
 function migrate(){
-  try{const cur=JSON.parse(localStorage.getItem(KEY)||"null");if(cur&&typeof cur==="object"){data.groups=Array.isArray(cur.groups)?cur.groups:[];data.choices=Array.isArray(cur.choices)?cur.choices:[];data.records=Array.isArray(cur.records)?cur.records:[];}}catch(e){}
-  if(data.groups.length||data.choices.length||data.records.length)return;
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i); if(!k||k===KEY)continue;
-    try{
-      const v=JSON.parse(localStorage.getItem(k));
-      if(!v||typeof v!=="object")continue;
-      if(Array.isArray(v.groups))for(const g of v.groups){
-        if(!g?.name)continue;
-        const gid=g.id||crypto.randomUUID();
-        if(!data.groups.some(x=>x.id===gid||x.name===g.name))data.groups.push({id:gid,name:g.name});
-        if(Array.isArray(g.choices))for(const c of g.choices){
-          if(!c?.name)continue;
-          if(!data.choices.some(x=>x.name===c.name))data.choices.push({id:c.id||crypto.randomUUID(),name:c.name,image:c.image||null});
-        }
-      }
-      if(Array.isArray(v.choices))for(const c of v.choices)if(c?.name&&!data.choices.some(x=>x.name===c.name))data.choices.push({id:c.id||crypto.randomUUID(),name:c.name,image:c.image||null});
-      if(Array.isArray(v.records))for(const r of v.records)if(r&&(r.choiceName||r.name||r.choice))data.records.push({groupId:r.groupId||"",groupName:r.groupName||"",choiceName:r.choiceName||r.name||r.choice,date:r.date||r.createdAt||new Date().toISOString()});
-    }catch(e){}
-  }
-  localStorage.setItem(KEY,JSON.stringify(data));
+  const merged={groups:[],choices:[],records:[]}, candidates=[];
+  try{const v=JSON.parse(localStorage.getItem(KEY)||"null");if(v)candidates.push(v)}catch(e){}
+  LEGACY_KEYS.forEach(k=>{try{const v=JSON.parse(localStorage.getItem(k)||"null");if(v)candidates.push(v)}catch(e){}});
+  try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!k||k===KEY||LEGACY_KEYS.includes(k))continue;try{const v=JSON.parse(localStorage.getItem(k));if(v&&(Array.isArray(v.groups)||Array.isArray(v.choices)||Array.isArray(v.records)))candidates.push(v)}catch(e){}}}catch(e){}
+  candidates.forEach(v=>merge(merged,normalize(v))); data=merged; localStorage.setItem(KEY,JSON.stringify(data));
 }
 migrate();
 
