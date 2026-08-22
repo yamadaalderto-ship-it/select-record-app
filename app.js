@@ -37,9 +37,19 @@ function render(){
   ({home,history,createGroup,manageChoices,select}[screen])();
 }
 function home(){
-  main.innerHTML=`<button class="primary" id="new">＋ 新しいグループを作る</button><button class="secondary" id="manage">選択肢を管理</button><div class="sectionTitle">グループ一覧</div>${data.groups.length?data.groups.map(g=>`<button class="groupCard" data-g="${g.id}"><div class="groupIcon">▦</div><div><b>${esc(g.name)}</b><div class="muted">共有選択肢：${data.choices.length}件</div></div></button>`).join(""):`<div class="empty">まだグループがありません。<br>「新しいグループを作る」から作成してください。</div>`}`;
+  main.innerHTML=`<button class="primary" id="new">＋ 新しいグループを作る</button><button class="secondary" id="manage">選択肢を管理</button><div class="sectionTitle">グループ一覧</div>${data.groups.length?data.groups.map(g=>`<div class="groupItem"><button class="groupCard" data-g="${g.id}"><div class="groupIcon">▦</div><div><b>${esc(g.name)}</b><div class="muted">共有選択肢：${data.choices.length}件</div></div></button><button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button></div>`).join(""):`<div class="empty">まだグループがありません。<br>「新しいグループを作る」から作成してください。</div>`}`;
   document.getElementById("new").onclick=()=>{screen="createGroup";render()};
   document.getElementById("manage").onclick=()=>{screen="manageChoices";render()};
+  main.querySelectorAll("[data-delete-group]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.deleteGroup;
+    const g=data.groups.find(x=>x.id===id);
+    if(!g)return;
+    if(!confirm(`「${g.name}」を削除しますか？\nこのグループの記録も削除されます。`))return;
+    data.groups=data.groups.filter(x=>x.id!==id);
+    data.records=data.records.filter(r=>r.groupId!==id);
+    if(currentGroupId===id)currentGroupId=null;
+    save(); render();
+  });
   main.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{currentGroupId=b.dataset.g;selectedId=null;screen="select";render()});
 }
 function createGroup(){
@@ -101,8 +111,27 @@ function history(){
       <b>${r.choiceName?esc(r.choiceName):"📝 メモのみ"}</b>
       <small>${esc(r.groupName||"")}　${new Date(r.date).toLocaleString("ja-JP")}</small>
       ${r.memo?`<div class="recordMemo">${esc(r.memo)}</div>`:""}
-      <button class="editMemoBtn" data-edit-memo="${r.id||i}">メモを編集</button>
+      <div class="recordActions">
+        <button class="editMemoBtn" data-edit-memo="${r.id||i}">メモを編集</button>
+        <button class="editChoiceBtn" data-edit-choice="${r.id||i}">選択肢を編集</button>
+      </div>
     </div>`).join(""):`<div class="empty">記録はまだありません。</div>`;
+  main.querySelectorAll("[data-edit-choice]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.editChoice;
+    const r=data.records.find(x=>String(x.id)===String(id)) || data.records[Number(id)];
+    if(!r)return;
+    const options=data.choices;
+    if(!options.length){alert("選択肢がありません。");return}
+    const names=options.map((c,n)=>`${n+1}. ${c.name}`).join("\n");
+    const answer=prompt("記録する選択肢を番号で入力してください。\n\n"+names, r.choiceName ? String(Math.max(1,options.findIndex(c=>c.id===r.choiceId)+1)) : "");
+    if(answer===null)return;
+    const n=parseInt(answer,10);
+    if(!Number.isInteger(n)||n<1||n>options.length){alert("正しい番号を入力してください。");return}
+    const c=options[n-1];
+    r.choiceId=c.id;
+    r.choiceName=c.name;
+    save(); render();
+  });
   main.querySelectorAll("[data-edit-memo]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.editMemo;
     const r=data.records.find(x=>String(x.id)===String(id)) || data.records[Number(id)];
