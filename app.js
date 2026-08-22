@@ -59,12 +59,60 @@ async function editChoice(id=null){
   input.onchange=async()=>{let image=old?.image||null;if(input.files[0])image=await fileToData(input.files[0]);if(old){old.name=name.trim();old.image=image}else data.choices.push({id:crypto.randomUUID(),name:name.trim(),image});save();render()};input.click();
 }
 function select(){
-  const g=group();if(!g)return;main.style.paddingBottom="150px";
-  main.innerHTML=`${data.choices.length?`<div class="grid">${data.choices.map(c=>`<button class="cell ${selectedId===c.id?"selected":""}" data-c="${c.id}">${c.image?`<img src="${c.image}">`:`<div class="placeholder">＋</div>`}<div class="cellName">${esc(c.name)}</div></button>`).join("")}</div>`:`<div class="empty">選択肢がありません。<br>「選択肢を管理」から追加してください。</div>`}<div class="confirm"><div style="text-align:center;margin-bottom:7px">${selectedId?`選択中：${esc(data.choices.find(c=>c.id===selectedId)?.name||"")}`:"選択肢をタップしてください"}</div><button id="ok" ${selectedId?"":"disabled"}>決定</button></div>`;
-  main.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{selectedId=b.dataset.c;render()});
-  document.getElementById("ok").onclick=()=>{const c=data.choices.find(c=>c.id===selectedId);if(!c)return;data.records.unshift({groupId:g.id,groupName:g.name,choiceName:c.name,date:new Date().toISOString()});save();alert("記録しました");selectedId=null;render()};
+  const g=group(); if(!g)return;
+  main.style.paddingBottom="150px";
+  const chosen=data.choices.find(c=>c.id===selectedId);
+  main.innerHTML=`
+    ${data.choices.length?`<div class="grid">${data.choices.map(c=>`
+      <button class="cell ${selectedId===c.id?"selected":""}" data-c="${c.id}">
+        ${c.image?`<img src="${c.image}">`:`<div class="placeholder">＋</div>`}
+        <div class="cellName">${esc(c.name)}</div>
+      </button>`).join("")}</div>`:`<div class="empty">選択肢がありません。</div>`}
+    <div class="memoArea">
+      <label>📝 メモ</label>
+      <textarea id="recordMemo" placeholder="メモを入力してください"></textarea>
+    </div>
+    <div class="confirm">
+      <div id="selectedInfo" class="selectedInfo">${chosen?`選択中：${esc(chosen.name)}`:"選択肢は未選択（メモだけでも保存できます）"}</div>
+      <button id="ok">完了</button>
+    </div>`;
+  main.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{
+    selectedId=b.dataset.c; render();
+  });
+  document.getElementById("ok").onclick=()=>{
+    const memo=document.getElementById("recordMemo").value.trim();
+    const c=data.choices.find(x=>x.id===selectedId);
+    if(!c && !memo){alert("選択肢を選ぶか、メモを入力してください。");return}
+    data.records.unshift({
+      id:crypto.randomUUID(),
+      groupId:g.id,
+      groupName:g.name,
+      choiceId:c?.id||"",
+      choiceName:c?.name||"",
+      memo,
+      date:new Date().toISOString()
+    });
+    save(); alert("記録しました"); selectedId=null; render();
+  };
 }
-function history(){main.innerHTML=data.records.length?data.records.map(r=>`<div class="record"><b>${esc(r.choiceName)}</b><small>${esc(r.groupName||"")}　${new Date(r.date).toLocaleString("ja-JP")}</small></div>`).join(""):`<div class="empty">記録はまだありません。</div>`}
+function history(){
+  main.innerHTML=data.records.length?data.records.map((r,i)=>`
+    <div class="record" data-record="${r.id||i}">
+      <b>${r.choiceName?esc(r.choiceName):"📝 メモのみ"}</b>
+      <small>${esc(r.groupName||"")}　${new Date(r.date).toLocaleString("ja-JP")}</small>
+      ${r.memo?`<div class="recordMemo">${esc(r.memo)}</div>`:""}
+      <button class="editMemoBtn" data-edit-memo="${r.id||i}">メモを編集</button>
+    </div>`).join(""):`<div class="empty">記録はまだありません。</div>`;
+  main.querySelectorAll("[data-edit-memo]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.editMemo;
+    const r=data.records.find(x=>String(x.id)===String(id)) || data.records[Number(id)];
+    if(!r)return;
+    const memo=prompt("メモを編集",r.memo||"");
+    if(memo===null)return;
+    r.memo=memo;
+    save(); render();
+  });
+}
 back.onclick=()=>{screen="home";render()};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{screen=b.dataset.tab;render();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b))});
 render();
