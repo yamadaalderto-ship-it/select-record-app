@@ -90,29 +90,105 @@ function renderSelect(){
   }
 }
 function renderHistory(){
+  // First screen: group names only.
   if(!recordGroupId){
-    const gs=data.groups.filter(g=>data.records.some(r=>r.groupId===g.id));
-    main.innerHTML=gs.length?gs.map(g=>`<button class="historyGroup" data-rg="${g.id}"><div class="groupIcon">▦</div><div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件の記録</div></div></button>`).join(""):`<div class="empty">まだ記録がありません。</div>`;
-    main.querySelectorAll("[data-rg]").forEach(b=>b.onclick=()=>{recordGroupId=b.dataset.rg;render()});
+    const groupsWithRecords=data.groups.filter(g=>data.records.some(r=>r.groupId===g.id));
+    main.innerHTML=groupsWithRecords.length
+      ? groupsWithRecords.map(g=>`<button class="historyGroup" data-record-group="${g.id}">
+          <div class="groupIcon">▦</div>
+          <div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件</div></div>
+        </button>`).join("")
+      : `<div class="empty">まだ記録がありません。</div>`;
+    main.querySelectorAll("[data-record-group]").forEach(b=>b.onclick=()=>{
+      recordGroupId=b.dataset.recordGroup;
+      render();
+    });
     return;
   }
+
+  // Second screen: records for one group.
   const g=data.groups.find(x=>x.id===recordGroupId);
-  if(!g){recordGroupId=null;return render()}
-  const rs=data.records.filter(r=>r.groupId===g.id).slice().reverse();
-  main.innerHTML=`<button class="backToGroups" id="backRecords">‹ 記録グループ一覧</button>
-  <div class="tableWrap"><table class="recordTable"><thead><tr><th>日付・時間</th><th>選択</th><th>メモ</th><th>編集</th></tr></thead><tbody>
-  ${rs.map((r,i)=>{const c=data.choices.find(x=>x.id===r.choiceId);return `<tr><td>${new Date(r.date).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</td><td>${c?.image?`<img src="${c.image}" class="recordIcon">`:esc(r.choiceName||"—")}</td><td class="recordMemoCell">${esc(r.memo||"")}</td><td><button class="rowEdit" data-er="${r.id||i}">編集</button></td></tr>`}).join("")}</tbody></table></div>`;
-  document.getElementById("backRecords").onclick=()=>{recordGroupId=null;render()};
-  main.querySelectorAll("[data-er]").forEach(b=>b.onclick=()=>{
-    const r=data.records.find(x=>String(x.id)===String(b.dataset.er));if(!r)return;
+  if(!g){recordGroupId=null;render();return}
+
+  const records=data.records
+    .filter(r=>r.groupId===g.id)
+    .slice()
+    .sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  main.innerHTML=`
+    <button class="backToGroups" id="backRecordGroups">‹ 記録グループ一覧</button>
+    <div class="recordGroupTitle">${esc(g.name)}</div>
+    ${records.length ? `
+      <div class="tableWrap">
+        <table class="recordTable">
+          <thead>
+            <tr>
+              <th>日付・時間</th>
+              <th>選択</th>
+              <th>メモ</th>
+              <th>編集</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${records.map((r,i)=>{
+              const c=r.choiceId ? data.choices.find(x=>x.id===r.choiceId) : null;
+              const choice=c
+                ? (c.image
+                    ? `<img src="${c.image}" class="recordIcon" alt="${esc(c.name)}">`
+                    : `<span>${esc(c.name)}</span>`)
+                : "";
+              return `<tr>
+                <td>${new Date(r.date).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</td>
+                <td class="recordChoice">${choice}</td>
+                <td class="recordMemoCell">${esc(r.memo||"")}</td>
+                <td><button class="rowEdit" data-record-edit="${r.id}">編集</button></td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>` : `<div class="empty">このグループには記録がありません。</div>`}
+  `;
+
+  document.getElementById("backRecordGroups").onclick=()=>{
+    recordGroupId=null;
+    render();
+  };
+
+  main.querySelectorAll("[data-record-edit]").forEach(btn=>btn.onclick=()=>{
+    const r=data.records.find(x=>String(x.id)===String(btn.dataset.recordEdit));
+    if(!r)return;
+
     const list=data.choices.map((c,i)=>`${i+1}. ${c.name}`).join("\n");
-    const current=r.choiceId?data.choices.findIndex(c=>c.id===r.choiceId)+1:"";
-    const a=prompt("選択肢の番号（空欄で選択なし）\n\n"+list,String(current));if(a===null)return;
-    const m=prompt("メモを編集",r.memo||"");if(m===null)return;
-    if(a.trim()===""){r.choiceId="";r.choiceName=""}else{const n=parseInt(a,10);if(n<1||n>data.choices.length){alert("正しい番号を入力してください");return}const c=data.choices[n-1];r.choiceId=c.id;r.choiceName=c.name}
-    r.memo=m;save();render();
+    const current=r.choiceId ? data.choices.findIndex(c=>c.id===r.choiceId)+1 : "";
+    const answer=prompt(
+      "選択肢を変更する場合は番号を入力してください。\n空欄＝選択肢なし\n\n"+list,
+      String(current)
+    );
+    if(answer===null)return;
+
+    const memo=prompt("メモを編集",r.memo||"");
+    if(memo===null)return;
+
+    if(answer.trim()===""){
+      r.choiceId="";
+      r.choiceName="";
+    }else{
+      const n=parseInt(answer,10);
+      if(!Number.isInteger(n)||n<1||n>data.choices.length){
+        alert("正しい番号を入力してください。");
+        return;
+      }
+      const c=data.choices[n-1];
+      r.choiceId=c.id;
+      r.choiceName=c.name;
+    }
+
+    r.memo=memo;
+    save();
+    render();
   });
 }
+
 back.onclick=()=>{if(screen==="select"||screen==="manage"||screen==="createGroup"){screen="home";render()}};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{screen=b.dataset.tab;if(screen==="history")recordGroupId=null;render();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b))});
 render();

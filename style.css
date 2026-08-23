@@ -2,3 +2,16 @@
 .groupItem{display:flex;align-items:center;border-bottom:1px solid #e5e5e5}.groupItem .groupCard{border-bottom:0;flex:1}.deleteGroupBtn{margin-right:10px;border:1px solid #c62828;background:#fff;color:#c62828;border-radius:9px;padding:8px 10px;font-weight:700}
 .memoArea{margin:16px 0;padding:12px;border:1px solid #ddd;border-radius:12px;background:#fafafa}.memoArea label{display:block;font-weight:700;margin-bottom:8px}.memoArea textarea{width:100%;min-height:90px;padding:10px;border:1px solid #bbb;border-radius:9px;resize:vertical;background:#fff}
 .historyGroup{width:100%;display:flex;align-items:center;gap:14px;padding:14px;border:0;border-bottom:1px solid #e5e5e5;background:#fff;text-align:left}.tableWrap{overflow-x:auto;-webkit-overflow-scrolling:touch}.recordTable{width:100%;border-collapse:collapse;min-width:520px;background:#fff}.recordTable th,.recordTable td{border:1px solid #ddd;padding:10px 8px;text-align:center;vertical-align:middle}.recordTable th{background:#f5f5f5;white-space:nowrap}.recordIcon{width:48px;height:48px;object-fit:cover;border-radius:9px}.recordMemoCell{text-align:left;white-space:pre-wrap;min-width:150px}.rowEdit{border:1px solid #1976d2;background:#fff;color:#1976d2;border-radius:8px;padding:7px 10px;font-weight:700;white-space:nowrap}.backToGroups{border:0;background:none;color:#1976d2;font-weight:700;padding:5px 0 12px}
+
+.recordGroupTitle{font-size:20px;font-weight:800;margin:4px 0 14px}
+.historyGroup{width:100%;display:flex;align-items:center;gap:14px;padding:14px;border:0;border-bottom:1px solid #e5e5e5;background:#fff;text-align:left}
+.tableWrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.recordTable{width:100%;border-collapse:collapse;background:#fff}
+.recordTable th,.recordTable td{border:1px solid #ddd;padding:10px 8px;text-align:center;vertical-align:middle}
+.recordTable th{background:#f5f5f5;font-weight:700;white-space:nowrap}
+.recordTable th:nth-child(1),.recordTable td:nth-child(1){white-space:nowrap}
+.recordChoice{min-width:70px}
+.recordIcon{width:48px;height:48px;object-fit:cover;border-radius:9px}
+.recordMemoCell{text-align:left;white-space:pre-wrap;min-width:140px}
+.rowEdit{border:1px solid #1976d2;background:#fff;color:#1976d2;border-radius:8px;padding:7px 10px;font-weight:700;white-space:nowrap}
+.backToGroups{border:0;background:none;color:#1976d2;font-weight:700;padding:5px 0 12px}
