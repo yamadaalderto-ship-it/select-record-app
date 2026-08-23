@@ -41,9 +41,10 @@ function renderHome(){
   <div class="sectionTitle">グループ一覧</div>
   ${data.groups.length?data.groups.map(g=>`<div class="groupItem">
     <button class="groupCard" data-g="${g.id}"><div class="groupIcon">▦</div><div><b>${esc(g.name)}</b><div class="muted">共通選択肢：${data.choices.length}件</div></div></button>
-    <button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button>
+    <div class="groupActions"><button class="manageGroupBtn" data-manage-group="${g.id}">選択肢管理</button><button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button></div>
   </div>`).join(""):`<div class="empty">まだグループがありません。<br>「新しいグループを作る」から始めてください。</div>`}`;
   document.getElementById("newGroup").onclick=()=>{screen="createGroup";render()};
+  main.querySelectorAll("[data-manage-group]").forEach(b=>b.onclick=()=>{currentGroupId=b.dataset.manageGroup;screen="manage";render()});
   main.querySelectorAll("[data-delete-group]").forEach(b=>b.onclick=()=>{
     const g=data.groups.find(x=>x.id===b.dataset.deleteGroup);if(!g)return;
     if(!confirm(`「${g.name}」を削除しますか？\nこのグループの記録も削除されます。`))return;
