@@ -129,7 +129,7 @@ function renderHome(){
   ${homeFilterIcon?`<div class="activeFilter">アイコン：${esc(iconFilterLabel(homeFilterIcon))}</div>`:""}
   <div class="sectionTitle">グループ一覧</div>
   ${groups.length?groups.map(g=>`<div class="groupItem">
-    <button class="groupCard" data-g="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">共通選択肢：${data.choices.length}件</div></div></button>
+    <button class="groupCard" data-g="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b></div></button>
     <div class="groupActions"><button class="editGroupBtn" data-edit-group="${g.id}">編集</button><button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button></div>
   </div>`).join(""):`<div class="empty">${homeFilterIcon?"このアイコンのグループはありません。":"まだグループがありません。<br>「新しいグループを作る」から始めてください。"}</div>`}`;
   document.getElementById("newGroup").onclick=()=>{screen="createGroup";render()};
@@ -299,4 +299,27 @@ function toggleFilter(){
   } else if (typeof showFilterPicker === "function") {
     showFilterPicker();
   }
+}
+
+function toggleFilterButton(){
+  try {
+    const active =
+      (typeof state !== "undefined" && (state.filterIcon || state.filterByIcon)) ||
+      (typeof appState !== "undefined" && (appState.filterIcon || appState.filterByIcon));
+    if (active) {
+      if (typeof state !== "undefined") {
+        if ("filterIcon" in state) state.filterIcon = null;
+        if ("filterByIcon" in state) state.filterByIcon = null;
+      }
+      if (typeof appState !== "undefined") {
+        if ("filterIcon" in appState) appState.filterIcon = null;
+        if ("filterByIcon" in appState) appState.filterByIcon = null;
+      }
+      if (typeof save === "function") save();
+      if (typeof render === "function") render();
+      return;
+    }
+  } catch(e) {}
+  if (typeof openFilterPicker === "function") openFilterPicker();
+  else if (typeof showFilterPicker === "function") showFilterPicker();
 }
