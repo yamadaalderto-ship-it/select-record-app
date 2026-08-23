@@ -2,6 +2,48 @@ const KEY="select_record_shared_v5";
 const LEGACY_KEYS=["select_record_shared_v4","select_record_shared_v3","select_record_web_v2","select_record_web_v1"];
 let data={groups:[],choices:[],records:[]};
 
+const BUILTIN_ICONS=[
+  ["amiibo","S3 Brand amiibo.png"],["アイロニック","S3 Brand Zink.png"],["アタリメイド","S3 Brand Cuttlegear.png"],
+  ["アナアキ","S3 Brand Annaki.png"],["アロメ","S3 Brand Tentatek.png"],["エゾッコ","S3 Brand Zekko.png"],
+  ["エゾッコリー","S3 Brand Z+F.png"],["エンペリー","S3 Brand Enperry.png"],["クマサン商会","S3 Brand Grizzco.png"],
+  ["クラーゲス","S3 Brand Krak-On.png"],["シグレニ","S3 Brand Inkline.png"],["シチリン","S3 Brand Emberz.png"],
+  ["ジモン","S3 Brand Splash Mob.png"],["タタキケンサキ","S3 Brand Toni Kensa.png"],["バトロイカ","S3 Brand SquidForce.png"],
+  ["バラズシ","S3 Brand Barazushi.png"],["フォーリマ","S3 Brand Forge.png"],["ホタックス","S3 Brand Skalop.png"],
+  ["ホッコリー","S3 Brand Firefin.png"],["ヤコ","S3 Brand Takoroka.png"],["ロッケンベルグ","S3 Brand Rockenberg.png"]
+].map(([name,file])=>({id:"builtin_icon_"+name,name,image:"https://splatoonwiki.org/wiki/Special:Redirect/file/"+encodeURIComponent(file).replace(/%20/g,"_")}));
+
+const BUILTIN_CHOICES=[
+  ["インク効率アップ(メイン)","S3 Ability Ink Saver (Main).png"],["インク効率アップ(サブ)","S3 Ability Ink Saver (Sub).png"],
+  ["インク回復力アップ","S3 Ability Ink Recovery Up.png"],["ヒト移動速度アップ","S3 Ability Run Speed Up.png"],
+  ["イカダッシュ速度アップ","S3 Ability Swim Speed Up.png"],["スペシャル増加量アップ","S3 Ability Special Charge Up.png"],
+  ["スペシャル減少量ダウン","S3 Ability Special Saver.png"],["スペシャル性能アップ","S3 Ability Special Power Up.png"],
+  ["復活時間短縮","S3 Ability Quick Respawn.png"],["スーパージャンプ時間短縮","S3 Ability Quick Super Jump.png"],
+  ["サブ性能アップ","S3 Ability Sub Power Up.png"],["相手インク影響軽減","S3 Ability Ink Resistance Up.png"],
+  ["サブ影響軽減","S3 Ability Sub Resistance Up.png"],["アクション強化","S3 Ability Intensify Action.png"],
+  ["ラストスパート","S3 Ability Last-Ditch Effort.png"],["逆境強化","S3 Ability Tenacity.png"],
+  ["カムバック","S3 Ability Comeback.png"],["イカニンジャ","S3 Ability Ninja Squid.png"],
+  ["リベンジ","S3 Ability Haunt.png"],["サーマルインク","S3 Ability Thermal Ink.png"],
+  ["復活ペナルティアップ","S3 Ability Respawn Punisher.png"],["追加ギアパワー倍化","S3 Ability Ability Doubler.png"],
+  ["ステルスジャンプ","S3 Ability Stealth Jump.png"],["対物攻撃力アップ","S3 Ability Object Shredder.png"],
+  ["スタートダッシュ","S3 Ability Opening Gambit.png"],["受け身術","S3 Ability Drop Roller.png"]
+].map(([name,file])=>({id:"builtin_choice_"+name,name,image:"https://splatoonwiki.org/wiki/Special:Redirect/file/"+encodeURIComponent(file).replace(/%20/g,"_")}));
+
+function applyBuiltins(){
+  const oldChoiceByName=new Map(data.choices.map(c=>[c.name,c]));
+  data.icons=BUILTIN_ICONS.map(i=>({...i}));
+  data.choices=BUILTIN_CHOICES.map(c=>({...c}));
+  data.groups.forEach(g=>{
+    if(g.icon&&!data.icons.some(i=>i.image===g.icon))g.icon=null;
+  });
+  data.records.forEach(r=>{
+    const c=oldChoiceByName.get(r.choiceName);
+    if(c){const next=data.choices.find(x=>x.name===c.name);if(next){r.choiceId=next.id;r.choiceName=next.name;}}
+    else if(r.choiceId&&!data.choices.some(x=>x.id===r.choiceId)){r.choiceId="";r.choiceName="";}
+  });
+  save();
+}
+
+
 function uid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():"id_"+Date.now()+"_"+Math.random().toString(36).slice(2)}
 function normalize(raw){
   if(!raw||typeof raw!=="object")return null;
@@ -54,6 +96,7 @@ function migrate(){
   localStorage.setItem(KEY,JSON.stringify(data));
 }
 migrate();
+applyBuiltins();
 
 let screen="home",currentGroupId=null,selectedId=null,recordGroupId=null;
 let homeFilterIcon=null,historyFilterIcon=null,homeSort="created",historySort="created";
@@ -82,12 +125,12 @@ function sortGroups(list, mode){
   });
 }
 function iconByImage(image){return data.icons.find(i=>i.image===image)||null}
-function iconFilterLabel(image){const i=iconByImage(image);return i?.name||"アイコン"}
+function iconFilterLabel(image){return "アイコンで絞り込み中"}
 function showIconFilter(kind){
   const icons=data.icons.filter(i=>i.image);
   if(!icons.length){alert("登録されたアイコンがありません。");return}
   const current=kind==="home"?homeFilterIcon:historyFilterIcon;
-  openChoiceModal("絞り込み", icons.map(i=>({id:i.id,label:i.name||"アイコン",image:i.image,selected:i.image===current})), item=>{
+  openChoiceModal("絞り込み", icons.map(i=>({id:i.id,label:"",image:i.image,selected:i.image===current})), item=>{
     if(kind==="home") homeFilterIcon=item.image; else historyFilterIcon=item.image;
     render();
   }, {
@@ -111,7 +154,7 @@ function showSort(kind){
 function openChoiceModal(titleText,items,onPick,options={}){
   const wrap=document.createElement("div");
   wrap.className="choiceModal";
-  wrap.innerHTML=`<div class="choiceModalBackdrop"></div><div class="choiceModalPanel"><div class="choiceModalTitle">${esc(titleText)}</div><div class="choiceModalList">${items.map(i=>`<button class="modalChoice ${i.selected?"selected":""}" data-modal-id="${esc(i.id)}">${i.image?`<img src="${esc(i.image)}" alt="">`:``}<span>${esc(i.label)}</span></button>`).join("")}</div>${options.clearLabel?`<button class="filterClearBtn">${esc(options.clearLabel)}</button>`:""}<button class="modalCancel">キャンセル</button></div>`;
+  wrap.innerHTML=`<div class="choiceModalBackdrop"></div><div class="choiceModalPanel"><div class="choiceModalTitle">${esc(titleText)}</div><div class="choiceModalList">${items.map(i=>`<button class="modalChoice ${i.selected?"selected":""}" data-modal-id="${esc(i.id)}">${i.image?`<img src="${esc(i.image)}" alt="">`:``}${i.label?`<span>${esc(i.label)}</span>`:""}</button>`).join("")}</div>${options.clearLabel?`<button class="filterClearBtn">${esc(options.clearLabel)}</button>`:""}<button class="modalCancel">キャンセル</button></div>`;
   document.body.appendChild(wrap);
   wrap.querySelector(".choiceModalBackdrop").onclick=()=>wrap.remove();
   wrap.querySelector(".modalCancel").onclick=()=>wrap.remove();
@@ -124,17 +167,14 @@ function renderHome(){
   if(homeFilterIcon) groups=groups.filter(g=>g.icon===homeFilterIcon);
   groups=sortGroups(groups,homeSort);
   main.innerHTML=`<button class="primary" id="newGroup">＋ 新しいグループを作る</button>
-  <div class="homeManageRow"><button class="secondary compact" id="manageAll">選択肢</button><button class="secondary compact" id="manageIcons">アイコン</button></div>
   <div class="homeControlRow"><button class="secondary controlBtn" id="homeFilter">絞り込み</button><button class="secondary controlBtn" id="homeSort">並び替え</button></div>
-  ${homeFilterIcon?`<div class="activeFilter">アイコン：${esc(iconFilterLabel(homeFilterIcon))}</div>`:""}
+  ${homeFilterIcon?`<div class="activeFilter">アイコンで絞り込み中</div>`:""}
   <div class="sectionTitle">グループ一覧</div>
   ${groups.length?groups.map(g=>`<div class="groupItem">
     <button class="groupCard" data-g="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b></div></button>
     <div class="groupActions"><button class="editGroupBtn" data-edit-group="${g.id}">編集</button><button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button></div>
   </div>`).join(""):`<div class="empty">${homeFilterIcon?"このアイコンのグループはありません。":"まだグループがありません。<br>「新しいグループを作る」から始めてください。"}</div>`}`;
   document.getElementById("newGroup").onclick=()=>{screen="createGroup";render()};
-  document.getElementById("manageAll").onclick=()=>{screen="manage";render()};
-  document.getElementById("manageIcons").onclick=()=>{screen="icons";render()};
   document.getElementById("homeFilter").onclick=()=>{if(homeFilterIcon){homeFilterIcon=null;render()}else{showIconFilter("home")}};
   document.getElementById("homeSort").onclick=()=>showSort("home");
   main.querySelectorAll("[data-edit-group]").forEach(b=>b.onclick=()=>editGroupIcon(b.dataset.editGroup));
@@ -153,33 +193,100 @@ function editGroupIcon(groupId){
   screen="pickIcon";
   render();
 }
-function renderCreateGroup(){
-  let selectedIcon=window.__selectedGroupIcon||null;
-  main.innerHTML=`<div class="form">
-    <label class="label">グループ名</label>
-    <input id="gname" class="input" placeholder="例：今日の夕食" maxlength="40">
-    <label class="label">アイコンを選択</label>
-    <button type="button" class="groupIconPicker" id="pickGroupIcon">
-      <span id="groupIconPreview" class="groupIcon groupIconPlaceholder">＋</span>
-      <span id="groupIconText">アイコンを選択</span>
-    </button>
-    <button class="primary" id="create">作成する</button>
-  </div>`;
-  document.getElementById("pickGroupIcon").onclick=()=>{screen="pickIcon";render()};
-  document.getElementById("create").onclick=()=>{
-    const n=document.getElementById("gname").value.trim();
-    if(!n){alert("グループ名を入力してください。");return}
-    const id=uid(); data.groups.push({id,name:n,memo:"",icon:selectedIcon,createdAt:new Date().toISOString()}); window.__selectedGroupIcon=null;
-    save();currentGroupId=id;screen="select";render()
-  }
+function escapeHtml(v){
+  return String(v ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 }
+function renderCreateGroup(){
+  const icons = (data.icons || []);
+  const choices = (data.choices || []);
+  const current = window.__creatingGroup || {icon:null,name:"",choiceIds:[]};
+
+  main.innerHTML = `
+    <section class="panel">
+      <h2>グループを作る</h2>
+
+      <div class="step">
+        <div class="stepTitle">1. アイコンを選択</div>
+        <div class="pickerGrid" id="groupIconPicker">
+          ${icons.map(ic=>`
+            <button class="pickerItem ${current.icon===ic.id?'selected':''}" data-group-icon="${ic.id}">
+              ${ic.image ? `<img src="${ic.image}" alt="">` : (ic.label || "＋")}
+            </button>`).join("")}
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="stepTitle">2. 名前入力</div>
+        <input id="groupNameInput" class="textInput" type="text"
+          placeholder="グループ名を入力" value="${escapeHtml(current.name || "")}">
+      </div>
+
+      <div class="step">
+        <div class="stepTitle">3. 選択肢の選択</div>
+        <div class="pickerGrid" id="groupChoicePicker">
+          ${choices.map(ch=>`
+            <button class="choicePickerItem ${current.choiceIds.includes(ch.id)?'selected':''}" data-group-choice="${ch.id}">
+              ${ch.image ? `<img src="${ch.image}" alt="">` : (ch.label || ch.name || "")}
+            </button>`).join("")}
+        </div>
+      </div>
+
+      <button class="primary" id="finishCreateGroup">完了</button>
+      <button class="secondary" id="cancelCreateGroup">キャンセル</button>
+    </section>`;
+
+  main.querySelectorAll("[data-group-icon]").forEach(b=>{
+    b.onclick=()=>{
+      current.icon=b.dataset.groupIcon;
+      window.__creatingGroup=current;
+      renderCreateGroup();
+    };
+  });
+
+  main.querySelector("#groupNameInput").oninput=e=>{
+    current.name=e.target.value;
+    window.__creatingGroup=current;
+  };
+
+  main.querySelectorAll("[data-group-choice]").forEach(b=>{
+    b.onclick=()=>{
+      const id=b.dataset.groupChoice;
+      current.choiceIds=current.choiceIds.includes(id)
+        ? current.choiceIds.filter(x=>x!==id)
+        : [...current.choiceIds,id];
+      window.__creatingGroup=current;
+      renderCreateGroup();
+    };
+  });
+
+  main.querySelector("#finishCreateGroup").onclick=()=>{
+    const name=(current.name||"").trim();
+    if(!current.icon || !name){
+      alert("アイコンとグループ名を入力してください");
+      return;
+    }
+    data.groups=data.groups||[];
+    data.groups.push({
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      name,
+      icon: current.icon,
+      choiceIds:[...(current.choiceIds||[])],
+      createdAt: Date.now()
+    });
+    window.__creatingGroup=null;
+    save();
+    render();
+  };
+
+  main.querySelector("#cancelCreateGroup").onclick=()=>{
+    window.__creatingGroup=null;
+    render();
+  };
+}
+
 function renderIcons(){
-  main.innerHTML=`<button class="primary" id="addIcon">＋ アイコンを追加する</button>
-  <div class="sectionTitle">共通アイコン（${data.icons.length}）</div>
-  <div class="choiceList">${data.icons.length?data.icons.map(i=>`<div class="choiceRow">${i.image?`<img class="thumb" src="${esc(i.image)}">`:`<div class="thumb"></div>`}<div class="grow"><b>${esc(i.name||"アイコン")}</b></div><button class="smallBtn" data-icon-edit="${i.id}">編集</button><button class="smallBtn danger" data-icon-del="${i.id}">削除</button></div>`).join(""):`<div class="empty">アイコンがありません。ここから追加できます。</div>`}</div>`;
-  document.getElementById("addIcon").onclick=()=>iconEditor();
-  main.querySelectorAll("[data-icon-edit]").forEach(b=>b.onclick=()=>iconEditor(b.dataset.iconEdit));
-  main.querySelectorAll("[data-icon-del]").forEach(b=>b.onclick=()=>{const id=b.dataset.iconDel,i=data.icons.find(x=>x.id===id);if(!i)return;if(!confirm("このアイコンを削除しますか？"))return;data.icons=data.icons.filter(x=>x.id!==id);data.groups.forEach(g=>{if(g.icon===i.image)g.icon=null});save();render()});
+  main.innerHTML=`<div class="sectionTitle">初期アイコン（${data.icons.length}）</div>
+  <div class="grid">${data.icons.map(i=>`<button class="cell" disabled><img src="${esc(i.image)}" alt=""></button>`).join("")}</div>`;
 }
 async function iconEditor(editId=null){
   const old=data.icons.find(i=>i.id===editId);
@@ -195,59 +302,33 @@ async function iconEditor(editId=null){
   input.click();
 }
 function renderPickIcon(){
-  main.innerHTML=`<button class="secondary" id="manageIconsFromPicker">アイコンを管理</button>
-  ${data.icons.length?`<div class="grid">${data.icons.map(i=>`<button class="cell" data-pick-icon="${i.id}">${i.image?`<img src="${esc(i.image)}">`:`<div class="placeholder">＋</div>`}<div class="cellName">${esc(i.name||"アイコン")}</div></button>`).join("")}</div>`:`<div class="empty">登録されたアイコンがありません。<br>「アイコンを管理」から追加してください。</div>`}`;
-  document.getElementById("manageIconsFromPicker").onclick=()=>{screen="icons";render()};
+  main.innerHTML=`${data.icons.length?`<div class="grid">${data.icons.map(i=>`<button class="cell" data-pick-icon="${i.id}"><img src="${esc(i.image)}" alt=""></button>`).join("")}</div>`:`<div class="empty">アイコンがありません。</div>`}`;
   main.querySelectorAll("[data-pick-icon]").forEach(b=>b.onclick=()=>{
     const i=data.icons.find(x=>x.id===b.dataset.pickIcon);
     if(!i)return;
     if(editingGroupIconId){
       const g=data.groups.find(x=>x.id===editingGroupIconId);
       if(g){g.icon=i.image;save();}
-      editingGroupIconId=null;
-      screen="home";
-      render();
-      return;
+      editingGroupIconId=null; screen="home"; render(); return;
     }
-    screen="createGroup";
-    render();
+    screen="createGroup"; render();
     const preview=document.getElementById("groupIconPreview");
     preview.outerHTML=`<img id="groupIconPreview" class="groupIcon groupImage" src="${esc(i.image)}" alt="">`;
-    document.getElementById("groupIconText").textContent=i.name||"アイコンを変更";
+    document.getElementById("groupIconText").textContent="アイコンを変更";
     window.__selectedGroupIcon=i.image;
   });
 }
 function renderManage(){
-  main.innerHTML=`<button class="primary" id="add">＋ 選択肢を追加する</button>
-  <div class="sectionTitle">全グループ共通（${data.choices.length}）</div>
-  <div class="choiceList">${data.choices.length?data.choices.map(c=>`<div class="choiceRow">${c.image?`<img class="thumb" src="${c.image}">`:`<div class="thumb"></div>`}<div class="grow"><b>${esc(c.name)}</b></div><button class="smallBtn" data-edit="${c.id}">編集</button><button class="smallBtn danger" data-del="${c.id}">削除</button></div>`).join(""):`<div class="empty">選択肢がありません。</div>`}</div>`;
-  document.getElementById("add").onclick=()=>choiceEditor();
-  main.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>choiceEditor(b.dataset.edit));
-  main.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("この共通選択肢を削除しますか？")){data.choices=data.choices.filter(c=>c.id!==b.dataset.del);data.records.forEach(r=>{if(r.choiceId===b.dataset.del){r.choiceId="";r.choiceName=""}});save();render()}});
+  main.innerHTML=`<div class="sectionTitle">初期選択肢（${data.choices.length}）</div>
+  <div class="grid">${data.choices.map(c=>`<button class="cell" disabled><img src="${esc(c.image)}" alt=""></button>`).join("")}</div>`;
 }
-async function choiceEditor(editId=null){
-  const old=data.choices.find(c=>c.id===editId);
-  const name=prompt("選択肢の名前",old?.name||"");
-  if(name===null||!name.trim())return;
-  const input=document.createElement("input");input.type="file";input.accept="image/*";
-  if(old?.image&&!confirm("画像を変更しますか？\nキャンセルなら現在の画像を維持します。")){
-    old.name=name.trim();save();render();return;
-  }
-  input.onchange=async()=>{
-    let image=old?.image||null;
-    if(input.files[0])image=await fileToData(input.files[0]);
-    if(old){old.name=name.trim();old.image=image}
-    else data.choices.push({id:uid(),name:name.trim(),image});
-    save();render();
-  };
-  input.click();
-}
+function choiceEditor(){return;}
 function renderSelect(){
   const g=group();if(!g){screen="home";return render()}
   const chosen=data.choices.find(c=>c.id===selectedId);
-  main.innerHTML=`${data.choices.length?`<div class="grid">${data.choices.map(c=>`<button class="cell ${selectedId===c.id?"selected":""}" data-c="${c.id}">${c.image?`<img src="${c.image}">`:`<div class="placeholder">＋</div>`}<div class="cellName">${esc(c.name)}</div></button>`).join("")}</div>`:`<div class="empty">選択肢がありません。ホームの「選択肢を管理」から追加してください。</div>`}
+  main.innerHTML=`${data.choices.length?`<div class="grid">${data.choices.map(c=>`<button class="cell ${selectedId===c.id?"selected":""}" data-c="${c.id}"><img src="${esc(c.image)}" alt=""></button>`).join("")}</div>`:`<div class="empty">選択肢がありません。</div>`}
     <div class="memoArea"><label>📝 メモ</label><textarea id="recordMemo" placeholder="メモを入力してください"></textarea></div>
-    <div class="confirm"><div class="note" style="text-align:center;margin-bottom:7px">${chosen?`選択中：${esc(chosen.name)}`:"選択肢は未選択（メモだけでも保存できます）"}</div><button id="confirm">完了</button></div>`;
+    <div class="confirm"><div class="note" style="text-align:center;margin-bottom:7px">${chosen?`選択中：<img src="${esc(chosen.image)}" class="recordIcon" alt="">`:"選択肢は未選択（メモだけでも保存できます）"}</div><button id="confirm">完了</button></div>`;
   main.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{selectedId=b.dataset.c;render()});
   document.getElementById("confirm").onclick=()=>{
     const memo=document.getElementById("recordMemo").value.trim(),c=data.choices.find(x=>x.id===selectedId);
@@ -261,7 +342,7 @@ function renderHistory(){
     let groupsWithRecords=data.groups.filter(g=>data.records.some(r=>r.groupId===g.id));
     if(historyFilterIcon) groupsWithRecords=groupsWithRecords.filter(g=>g.icon===historyFilterIcon);
     groupsWithRecords=sortGroups(groupsWithRecords,historySort);
-    main.innerHTML=`<div class="historyControlRow"><button class="secondary controlBtn" id="historyFilter">絞り込み</button><button class="secondary controlBtn" id="historySort">並び替え</button></div>${historyFilterIcon?`<div class="activeFilter">アイコン：${esc(iconFilterLabel(historyFilterIcon))}</div>`:""}${groupsWithRecords.length?groupsWithRecords.map(g=>`<button class="historyGroup" data-record-group="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件</div></div></button>`).join(""):`<div class="empty">${historyFilterIcon?"このアイコンの記録はありません。":"まだ記録がありません。"}</div>`}`;
+    main.innerHTML=`<div class="historyControlRow"><button class="secondary controlBtn" id="historyFilter">絞り込み</button><button class="secondary controlBtn" id="historySort">並び替え</button></div>${historyFilterIcon?`<div class="activeFilter">アイコンで絞り込み中</div>`:""}${groupsWithRecords.length?groupsWithRecords.map(g=>`<button class="historyGroup" data-record-group="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件</div></div></button>`).join(""):`<div class="empty">${historyFilterIcon?"このアイコンの記録はありません。":"まだ記録がありません。"}</div>`}`;
     document.getElementById("historyFilter").onclick=()=>{if(historyFilterIcon){historyFilterIcon=null;render()}else{showIconFilter("history")}};
     document.getElementById("historySort").onclick=()=>showSort("history");
     main.querySelectorAll("[data-record-group]").forEach(b=>b.onclick=()=>{recordGroupId=b.dataset.recordGroup;render()});
