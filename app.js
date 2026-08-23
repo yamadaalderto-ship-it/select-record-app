@@ -8,7 +8,7 @@ function normalize(raw){
   const out={groups:[],choices:[],records:[],icons:[]};
   if(Array.isArray(raw.groups)) raw.groups.forEach(g=>{
     if(!g)return;
-    const group={id:String(g.id||uid()),name:String(g.name||"無題のグループ"),memo:g.memo||"",icon:g.icon||null};
+    const group={id:String(g.id||uid()),name:String(g.name||"無題のグループ"),memo:g.memo||"",icon:g.icon||null,createdAt:g.createdAt||g.created_at||0};
     if(!out.groups.some(x=>x.id===group.id))out.groups.push(group);
     if(Array.isArray(g.choices))g.choices.forEach(c=>{if(c)out.choices.push({id:String(c.id||uid()),name:String(c.name||""),image:c.image||null})});
   });
@@ -56,6 +56,7 @@ function migrate(){
 migrate();
 
 let screen="home",currentGroupId=null,selectedId=null,recordGroupId=null;
+let homeFilterIcon=null,historyFilterIcon=null,homeSort="created",historySort="created";
 const main=document.getElementById("main"),title=document.getElementById("title"),back=document.getElementById("backBtn");
 function save(){localStorage.setItem(KEY,JSON.stringify(data))}
 function group(){return data.groups.find(g=>g.id===currentGroupId)}
@@ -73,29 +74,70 @@ function render(){
   else if(screen==="pickIcon")renderPickIcon();
   else if(screen==="select")renderSelect();
 }
+function sortGroups(list, mode){
+  return list.slice().sort((a,b)=>{
+    if(mode==="name") return a.name.localeCompare(b.name,"ja");
+    const at=a.createdAt?new Date(a.createdAt).getTime():0, bt=b.createdAt?new Date(b.createdAt).getTime():0;
+    return bt-at;
+  });
+}
+function iconByImage(image){return data.icons.find(i=>i.image===image)||null}
+function iconFilterLabel(image){const i=iconByImage(image);return i?.name||"アイコン"}
+function showIconFilter(kind){
+  const icons=data.icons.filter(i=>i.image);
+  if(!icons.length){alert("登録されたアイコンがありません。");return}
+  const current=kind==="home"?homeFilterIcon:historyFilterIcon;
+  openChoiceModal("絞り込み", icons.map(i=>({id:i.id,label:i.name||"アイコン",image:i.image,selected:i.image===current})), item=>{
+    if(kind==="home") homeFilterIcon=item.image; else historyFilterIcon=item.image;
+    render();
+  });
+}
+function showSort(kind){
+  const current=kind==="home"?homeSort:historySort;
+  openChoiceModal("並び替え", [
+    {id:"name",label:"50音順",selected:current==="name"},
+    {id:"created",label:"作成日順",selected:current==="created"}
+  ], item=>{
+    if(kind==="home") homeSort=item.id; else historySort=item.id;
+    render();
+  });
+}
+function openChoiceModal(titleText,items,onPick){
+  const wrap=document.createElement("div");
+  wrap.className="choiceModal";
+  wrap.innerHTML=`<div class="choiceModalBackdrop"></div><div class="choiceModalPanel"><div class="choiceModalTitle">${esc(titleText)}</div><div class="choiceModalList">${items.map(i=>`<button class="modalChoice ${i.selected?"selected":""}" data-modal-id="${esc(i.id)}">${i.image?`<img src="${esc(i.image)}" alt="">`:``}<span>${esc(i.label)}</span></button>`).join("")}</div><button class="modalCancel">キャンセル</button></div>`;
+  document.body.appendChild(wrap);
+  wrap.querySelector(".choiceModalBackdrop").onclick=()=>wrap.remove();
+  wrap.querySelector(".modalCancel").onclick=()=>wrap.remove();
+  wrap.querySelectorAll("[data-modal-id]").forEach(b=>b.onclick=()=>{const item=items.find(i=>i.id===b.dataset.modalId);wrap.remove();if(item)onPick(item)});
+}
 function renderHome(){
+  let groups=data.groups;
+  if(homeFilterIcon) groups=groups.filter(g=>g.icon===homeFilterIcon);
+  groups=sortGroups(groups,homeSort);
   main.innerHTML=`<button class="primary" id="newGroup">＋ 新しいグループを作る</button>
-  <button class="secondary" id="manageAll">選択肢を管理</button>
-  <button class="secondary" id="manageIcons">アイコンを管理</button>
+  <div class="homeManageRow"><button class="secondary compact" id="manageAll">選択肢</button><button class="secondary compact" id="manageIcons">アイコン</button></div>
+  <div class="homeControlRow"><button class="secondary controlBtn" id="homeFilter">絞り込み</button><button class="secondary controlBtn" id="homeSort">並び替え</button></div>
+  ${homeFilterIcon?`<div class="activeFilter">アイコン：${esc(iconFilterLabel(homeFilterIcon))}</div>`:""}
   <div class="sectionTitle">グループ一覧</div>
-  ${data.groups.length?data.groups.map(g=>`<div class="groupItem">
+  ${groups.length?groups.map(g=>`<div class="groupItem">
     <button class="groupCard" data-g="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">共通選択肢：${data.choices.length}件</div></div></button>
     <div class="groupActions"><button class="editGroupBtn" data-edit-group="${g.id}">編集</button><button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button></div>
-  </div>`).join(""):`<div class="empty">まだグループがありません。<br>「新しいグループを作る」から始めてください。</div>`}`;
+  </div>`).join(""):`<div class="empty">${homeFilterIcon?"このアイコンのグループはありません。":"まだグループがありません。<br>「新しいグループを作る」から始めてください。"}</div>`}`;
   document.getElementById("newGroup").onclick=()=>{screen="createGroup";render()};
   document.getElementById("manageAll").onclick=()=>{screen="manage";render()};
   document.getElementById("manageIcons").onclick=()=>{screen="icons";render()};
+  document.getElementById("homeFilter").onclick=()=>showIconFilter("home");
+  document.getElementById("homeSort").onclick=()=>showSort("home");
   main.querySelectorAll("[data-edit-group]").forEach(b=>b.onclick=()=>editGroupIcon(b.dataset.editGroup));
   main.querySelectorAll("[data-delete-group]").forEach(b=>b.onclick=()=>{
     const g=data.groups.find(x=>x.id===b.dataset.deleteGroup);if(!g)return;
     if(!confirm(`「${g.name}」を削除しますか？\nこのグループの記録も削除されます。`))return;
-    data.groups=data.groups.filter(x=>x.id!==g.id);
-    data.records=data.records.filter(r=>r.groupId!==g.id);
-    if(currentGroupId===g.id)currentGroupId=null;
-    save();render();
+    data.groups=data.groups.filter(x=>x.id!==g.id);data.records=data.records.filter(r=>r.groupId!==g.id);if(currentGroupId===g.id)currentGroupId=null;save();render();
   });
   main.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{currentGroupId=b.dataset.g;selectedId=null;screen="select";render()});
 }
+
 let editingGroupIconId=null;
 function editGroupIcon(groupId){
   if(!data.groups.some(x=>x.id===groupId))return;
@@ -119,7 +161,7 @@ function renderCreateGroup(){
   document.getElementById("create").onclick=()=>{
     const n=document.getElementById("gname").value.trim();
     if(!n){alert("グループ名を入力してください。");return}
-    const id=uid(); data.groups.push({id,name:n,memo:"",icon:selectedIcon}); window.__selectedGroupIcon=null;
+    const id=uid(); data.groups.push({id,name:n,memo:"",icon:selectedIcon,createdAt:new Date().toISOString()}); window.__selectedGroupIcon=null;
     save();currentGroupId=id;screen="select";render()
   }
 }
@@ -208,8 +250,12 @@ function renderSelect(){
 }
 function renderHistory(){
   if(!recordGroupId){
-    const groupsWithRecords=data.groups.filter(g=>data.records.some(r=>r.groupId===g.id));
-    main.innerHTML=groupsWithRecords.length?groupsWithRecords.map(g=>`<button class="historyGroup" data-record-group="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件</div></div></button>`).join(""):`<div class="empty">まだ記録がありません。</div>`;
+    let groupsWithRecords=data.groups.filter(g=>data.records.some(r=>r.groupId===g.id));
+    if(historyFilterIcon) groupsWithRecords=groupsWithRecords.filter(g=>g.icon===historyFilterIcon);
+    groupsWithRecords=sortGroups(groupsWithRecords,historySort);
+    main.innerHTML=`<div class="historyControlRow"><button class="secondary controlBtn" id="historyFilter">絞り込み</button><button class="secondary controlBtn" id="historySort">並び替え</button></div>${historyFilterIcon?`<div class="activeFilter">アイコン：${esc(iconFilterLabel(historyFilterIcon))}</div>`:""}${groupsWithRecords.length?groupsWithRecords.map(g=>`<button class="historyGroup" data-record-group="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件</div></div></button>`).join(""):`<div class="empty">${historyFilterIcon?"このアイコンの記録はありません。":"まだ記録がありません。"}</div>`}`;
+    document.getElementById("historyFilter").onclick=()=>showIconFilter("history");
+    document.getElementById("historySort").onclick=()=>showSort("history");
     main.querySelectorAll("[data-record-group]").forEach(b=>b.onclick=()=>{recordGroupId=b.dataset.recordGroup;render()});
     return;
   }
@@ -220,14 +266,14 @@ function renderHistory(){
   document.getElementById("backRecordGroups").onclick=()=>{recordGroupId=null;render()};
   main.querySelectorAll("[data-record-edit]").forEach(btn=>btn.onclick=()=>{
     const r=data.records.find(x=>String(x.id)===String(btn.dataset.recordEdit));if(!r)return;
-    const list=data.choices.map((c,i)=>`${i+1}. ${c.name}`).join("\n");
-    const current=r.choiceId?data.choices.findIndex(c=>c.id===r.choiceId)+1:"";
+    const list=data.choices.map((c,i)=>`${i+1}. ${c.name}`).join("\n");const current=r.choiceId?data.choices.findIndex(c=>c.id===r.choiceId)+1:"";
     const answer=prompt("選択肢を変更する場合は番号を入力してください。\n空欄＝選択肢なし\n\n"+list,String(current));if(answer===null)return;
     const memo=prompt("メモを編集",r.memo||"");if(memo===null)return;
     if(answer.trim()===""){r.choiceId="";r.choiceName=""}else{const n=parseInt(answer,10);if(!Number.isInteger(n)||n<1||n>data.choices.length){alert("正しい番号を入力してください。");return}const c=data.choices[n-1];r.choiceId=c.id;r.choiceName=c.name}
     r.memo=memo;save();render();
   });
 }
+
 back.onclick=()=>{if(screen==="pickIcon"){screen="createGroup";render();return}if(screen==="select"||screen==="manage"||screen==="createGroup"||screen==="icons"){screen="home";render()}};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{screen=b.dataset.tab;if(screen==="history")recordGroupId=null;render();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b))});
 render();
