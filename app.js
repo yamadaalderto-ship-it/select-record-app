@@ -11,7 +11,15 @@ if(!Array.isArray(data.choices)){
   localStorage.setItem(KEY,JSON.stringify(data));
 }
 data.groups.forEach(g=>{if(g.memo===undefined)g.memo=""});
-data.records.forEach(r=>{if(r.memo===undefined)r.memo=""});
+data.records.forEach(r=>{
+  if(r.memo===undefined)r.memo="";
+  if(!r.groupId && r.groupName){
+    const g=data.groups.find(x=>x.name===r.groupName);
+    if(g) r.groupId=g.id;
+  }
+  if(!r.groupId && data.groups.length===1) r.groupId=data.groups[0].id;
+});
+save();
 
 let screen="home",currentGroupId=null,selectedId=null,recordGroupId=null;
 const main=document.getElementById("main"),title=document.getElementById("title"),back=document.getElementById("backBtn");
