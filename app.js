@@ -80,12 +80,13 @@ function renderHome(){
   <div class="sectionTitle">グループ一覧</div>
   ${data.groups.length?data.groups.map(g=>`<div class="groupItem">
     <button class="groupCard" data-g="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">共通選択肢：${data.choices.length}件</div></div></button>
-    <div class="groupActions"><button class="manageGroupBtn" data-manage-group="${g.id}">選択肢管理</button><button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button></div>
+    <div class="groupActions"><button class="manageGroupBtn" data-manage-group="${g.id}">編集</button><button class="editGroupBtn" data-edit-group="${g.id}">編集</button><button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button></div>
   </div>`).join(""):`<div class="empty">まだグループがありません。<br>「新しいグループを作る」から始めてください。</div>`}`;
   document.getElementById("newGroup").onclick=()=>{screen="createGroup";render()};
   document.getElementById("manageAll").onclick=()=>{screen="manage";render()};
   document.getElementById("manageIcons").onclick=()=>{screen="icons";render()};
   main.querySelectorAll("[data-manage-group]").forEach(b=>b.onclick=()=>{currentGroupId=b.dataset.manageGroup;screen="manage";render()});
+  main.querySelectorAll("[data-edit-group]").forEach(b=>b.onclick=()=>editGroupIcon(b.dataset.editGroup));
   main.querySelectorAll("[data-delete-group]").forEach(b=>b.onclick=()=>{
     const g=data.groups.find(x=>x.id===b.dataset.deleteGroup);if(!g)return;
     if(!confirm(`「${g.name}」を削除しますか？\nこのグループの記録も削除されます。`))return;
@@ -95,6 +96,18 @@ function renderHome(){
     save();render();
   });
   main.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{currentGroupId=b.dataset.g;selectedId=null;screen="select";render()});
+}
+async function editGroupIcon(groupId){
+  const g=data.groups.find(x=>x.id===groupId);
+  if(!g)return;
+  const input=document.createElement("input");
+  input.type="file"; input.accept="image/*";
+  input.onchange=async()=>{
+    if(!input.files[0])return;
+    g.icon=await fileToData(input.files[0]);
+    save(); render();
+  };
+  input.click();
 }
 function renderCreateGroup(){
   let selectedIcon=window.__selectedGroupIcon||null;

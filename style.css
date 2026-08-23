@@ -25,3 +25,9 @@
 .iconPicker{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.iconChoice{border:1px solid #ddd;background:#fff;border-radius:12px;min-height:58px;font-size:28px}.iconChoice.selected{border:2px solid #1976d2;background:#eaf2ff}.iconPreview{display:flex;align-items:center;gap:12px;color:#777;font-size:13px}.iconPreview .groupIcon{flex:0 0 48px}
 
 .groupIconPicker{width:100%;min-height:120px;border:1px solid #ddd;background:#fff;border-radius:13px;display:flex;align-items:center;justify-content:center;gap:12px;padding:14px;color:#1976d2;font-weight:700}.groupIconPicker:active{background:#eaf2ff}.groupIconPlaceholder{background:#eee!important;color:#888!important}.groupImage{object-fit:cover;overflow:hidden}
+
+.editGroupBtn,.deleteGroupBtn{margin-left:6px;border-radius:9px;padding:8px 10px;font-weight:700;white-space:nowrap;background:#fff}
+.editGroupBtn{border:1px solid #1976d2;color:#1976d2}
+.deleteGroupBtn{border:1px solid #c62828;color:#c62828}
+.groupItem{display:flex;align-items:center}
+.groupItem .groupCard{flex:1}
