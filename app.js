@@ -135,7 +135,7 @@ function renderHome(){
   document.getElementById("newGroup").onclick=()=>{screen="createGroup";render()};
   document.getElementById("manageAll").onclick=()=>{screen="manage";render()};
   document.getElementById("manageIcons").onclick=()=>{screen="icons";render()};
-  document.getElementById("homeFilter").onclick=()=>showIconFilter("home");
+  document.getElementById("homeFilter").onclick=()=>{if(homeFilterIcon){homeFilterIcon=null;render()}else{showIconFilter("home")}};
   document.getElementById("homeSort").onclick=()=>showSort("home");
   main.querySelectorAll("[data-edit-group]").forEach(b=>b.onclick=()=>editGroupIcon(b.dataset.editGroup));
   main.querySelectorAll("[data-delete-group]").forEach(b=>b.onclick=()=>{
@@ -262,7 +262,7 @@ function renderHistory(){
     if(historyFilterIcon) groupsWithRecords=groupsWithRecords.filter(g=>g.icon===historyFilterIcon);
     groupsWithRecords=sortGroups(groupsWithRecords,historySort);
     main.innerHTML=`<div class="historyControlRow"><button class="secondary controlBtn" id="historyFilter">絞り込み</button><button class="secondary controlBtn" id="historySort">並び替え</button></div>${historyFilterIcon?`<div class="activeFilter">アイコン：${esc(iconFilterLabel(historyFilterIcon))}</div>`:""}${groupsWithRecords.length?groupsWithRecords.map(g=>`<button class="historyGroup" data-record-group="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件</div></div></button>`).join(""):`<div class="empty">${historyFilterIcon?"このアイコンの記録はありません。":"まだ記録がありません。"}</div>`}`;
-    document.getElementById("historyFilter").onclick=()=>showIconFilter("history");
+    document.getElementById("historyFilter").onclick=()=>{if(historyFilterIcon){historyFilterIcon=null;render()}else{showIconFilter("history")}};
     document.getElementById("historySort").onclick=()=>showSort("history");
     main.querySelectorAll("[data-record-group]").forEach(b=>b.onclick=()=>{recordGroupId=b.dataset.recordGroup;render()});
     return;
