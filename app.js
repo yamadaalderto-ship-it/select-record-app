@@ -1,147 +1,118 @@
-const KEY="select_record_shared_v5";
-const LEGACY_KEYS=["select_record_shared_v4","select_record_shared_v3","select_record_web_v2","select_record_web_v1"];
-let data={groups:[],choices:[],records:[]};
-
-function uid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():"id_"+Date.now()+"_"+Math.random().toString(36).slice(2)}
-function normalize(raw){
-  if(!raw||typeof raw!=="object")return null;
-  const out={groups:[],choices:[],records:[]};
-  if(Array.isArray(raw.groups))raw.groups.forEach(g=>{if(!g)return;const group={id:String(g.id||uid()),name:String(g.name||"無題のグループ")};if(!out.groups.some(x=>x.id===group.id))out.groups.push(group);if(Array.isArray(g.choices))g.choices.forEach(c=>{if(c)out.choices.push({id:String(c.id||uid()),name:String(c.name||""),image:c.image||null})})});
-  if(Array.isArray(raw.choices))raw.choices.forEach(c=>{if(c)out.choices.push({id:String(c.id||uid()),name:String(c.name||""),image:c.image||null})});
-  if(Array.isArray(raw.records))raw.records.forEach(r=>{if(r)out.records.push({id:String(r.id||uid()),groupId:String(r.groupId||""),groupName:String(r.groupName||""),choiceName:String(r.choiceName||r.name||r.choice||""),date:r.date||r.createdAt||new Date().toISOString()})});
-  out.groups=out.groups.filter((g,i,a)=>a.findIndex(x=>x.id===g.id||x.name===g.name)===i);
-  out.choices=out.choices.filter(c=>c.name).filter((c,i,a)=>a.findIndex(x=>x.name===c.name)===i);
-  return out;
+const KEY="select_record_web_v2";
+let data=JSON.parse(localStorage.getItem(KEY)||'{"groups":[],"choices":[],"records":[]}');
+if(!Array.isArray(data.groups))data.groups=[];
+if(!Array.isArray(data.records))data.records=[];
+if(!Array.isArray(data.choices)){
+  data.choices=[];
+  data.groups.forEach(g=>(g.choices||[]).forEach(c=>{
+    if(!data.choices.some(x=>x.id===c.id))data.choices.push(c);
+  }));
+  data.groups.forEach(g=>delete g.choices);
+  localStorage.setItem(KEY,JSON.stringify(data));
 }
-function merge(base,add){if(!add)return;add.groups.forEach(g=>{if(!base.groups.some(x=>x.id===g.id||x.name===g.name))base.groups.push(g)});add.choices.forEach(c=>{const same=base.choices.find(x=>x.id===c.id||x.name===c.name);if(!same)base.choices.push(c);else if(!same.image&&c.image)same.image=c.image});add.records.forEach(r=>{if(!base.records.some(x=>x.id===r.id))base.records.push(r)})}
-function migrate(){
-  const merged={groups:[],choices:[],records:[]}, candidates=[];
-  try{const v=JSON.parse(localStorage.getItem(KEY)||"null");if(v)candidates.push(v)}catch(e){}
-  LEGACY_KEYS.forEach(k=>{try{const v=JSON.parse(localStorage.getItem(k)||"null");if(v)candidates.push(v)}catch(e){}});
-  try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!k||k===KEY||LEGACY_KEYS.includes(k))continue;try{const v=JSON.parse(localStorage.getItem(k));if(v&&(Array.isArray(v.groups)||Array.isArray(v.choices)||Array.isArray(v.records)))candidates.push(v)}catch(e){}}}catch(e){}
-  candidates.forEach(v=>merge(merged,normalize(v))); data=merged; localStorage.setItem(KEY,JSON.stringify(data));
-}
-migrate();
+data.groups.forEach(g=>{if(g.memo===undefined)g.memo=""});
+data.records.forEach(r=>{if(r.memo===undefined)r.memo=""});
 
-let screen="home",currentGroupId=null,selectedId=null;
+let screen="home",currentGroupId=null,selectedId=null,recordGroupId=null;
 const main=document.getElementById("main"),title=document.getElementById("title"),back=document.getElementById("backBtn");
-const save=()=>localStorage.setItem(KEY,JSON.stringify(data));
-const group=()=>data.groups.find(g=>g.id===currentGroupId);
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
-const fileToData=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
-
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function group(){return data.groups.find(g=>g.id===currentGroupId)}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]))}
+function fileToData(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
 function render(){
-  main.style.paddingBottom="88px";
-  title.textContent=screen==="home"?"ホーム":screen==="history"?"記録":screen==="createGroup"?"グループを作る":screen==="manageChoices"?"選択肢を管理":group()?.name||"選択";
+  title.textContent=screen==="home"?"ホーム":screen==="history"?"記録":screen==="createGroup"?"グループを作る":screen==="manage"?"選択肢を管理":group()?.name||"選択";
   back.classList.toggle("hidden",["home","history"].includes(screen));
-  ({home,history,createGroup,manageChoices,select}[screen])();
+  if(screen==="home")renderHome();
+  else if(screen==="history")renderHistory();
+  else if(screen==="createGroup")renderCreateGroup();
+  else if(screen==="manage")renderManage();
+  else if(screen==="select")renderSelect();
 }
-function home(){
-  main.innerHTML=`<button class="primary" id="new">＋ 新しいグループを作る</button><button class="secondary" id="manage">選択肢を管理</button><div class="sectionTitle">グループ一覧</div>${data.groups.length?data.groups.map(g=>`<div class="groupItem"><button class="groupCard" data-g="${g.id}"><div class="groupIcon">▦</div><div><b>${esc(g.name)}</b><div class="muted">共有選択肢：${data.choices.length}件</div></div></button><button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button></div>`).join(""):`<div class="empty">まだグループがありません。<br>「新しいグループを作る」から作成してください。</div>`}`;
-  document.getElementById("new").onclick=()=>{screen="createGroup";render()};
-  document.getElementById("manage").onclick=()=>{screen="manageChoices";render()};
+function renderHome(){
+  main.innerHTML=`<button class="primary" id="newGroup">＋ 新しいグループを作る</button>
+  <div class="sectionTitle">グループ一覧</div>
+  ${data.groups.length?data.groups.map(g=>`<div class="groupItem">
+    <button class="groupCard" data-g="${g.id}"><div class="groupIcon">▦</div><div><b>${esc(g.name)}</b><div class="muted">共通選択肢：${data.choices.length}件</div></div></button>
+    <button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button>
+  </div>`).join(""):`<div class="empty">まだグループがありません。<br>「新しいグループを作る」から始めてください。</div>`}`;
+  document.getElementById("newGroup").onclick=()=>{screen="createGroup";render()};
   main.querySelectorAll("[data-delete-group]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.deleteGroup;
-    const g=data.groups.find(x=>x.id===id);
-    if(!g)return;
+    const g=data.groups.find(x=>x.id===b.dataset.deleteGroup);if(!g)return;
     if(!confirm(`「${g.name}」を削除しますか？\nこのグループの記録も削除されます。`))return;
-    data.groups=data.groups.filter(x=>x.id!==id);
-    data.records=data.records.filter(r=>r.groupId!==id);
-    if(currentGroupId===id)currentGroupId=null;
-    save(); render();
+    data.groups=data.groups.filter(x=>x.id!==g.id);
+    data.records=data.records.filter(r=>r.groupId!==g.id);
+    save();render();
   });
   main.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{currentGroupId=b.dataset.g;selectedId=null;screen="select";render()});
 }
-function createGroup(){
+function renderCreateGroup(){
   main.innerHTML=`<div class="form"><label class="label">グループ名</label><input id="gname" class="input" placeholder="例：今日の夕食"><button class="primary" id="create">作成する</button></div>`;
-  document.getElementById("create").onclick=()=>{const n=document.getElementById("gname").value.trim();if(!n)return;const id=crypto.randomUUID();data.groups.push({id,name:n});save();currentGroupId=id;screen="select";render()};
+  document.getElementById("create").onclick=()=>{const n=document.getElementById("gname").value.trim();if(!n)return;const id=crypto.randomUUID();data.groups.push({id,name:n,memo:""});save();currentGroupId=id;screen="select";render()}
 }
-function manageChoices(){
-  main.innerHTML=`<button class="primary" id="add">＋ 選択肢を追加する</button><div class="sectionTitle">全グループ共通（${data.choices.length}）</div><div class="choiceList">${data.choices.map(c=>`<div class="choiceRow">${c.image?`<img class="thumb" src="${c.image}">`:`<div class="thumb"></div>`}<div class="grow"><b>${esc(c.name)}</b></div><button class="smallBtn" data-e="${c.id}">編集</button><button class="smallBtn danger" data-d="${c.id}">削除</button></div>`).join("")||`<div class="empty">選択肢がありません。</div>`}</div>`;
-  document.getElementById("add").onclick=()=>editChoice();
-  main.querySelectorAll("[data-e]").forEach(b=>b.onclick=()=>editChoice(b.dataset.e));
-  main.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{if(confirm("削除しますか？")){data.choices=data.choices.filter(c=>c.id!==b.dataset.d);save();render()}});
+function renderManage(){
+  main.innerHTML=`<button class="primary" id="add">＋ 選択肢を追加する</button>
+  <div class="sectionTitle">共通の選択肢（${data.choices.length}）</div>
+  <div class="choiceList">${data.choices.length?data.choices.map(c=>`<div class="choiceRow">${c.image?`<img class="thumb" src="${c.image}">`:`<div class="thumb"></div>`}<div class="grow"><b>${esc(c.name)}</b></div><button class="smallBtn" data-edit="${c.id}">編集</button><button class="smallBtn danger" data-del="${c.id}">削除</button></div>`).join(""):`<div class="empty">選択肢がありません。</div>`}</div>
+  <button class="primary" id="start">このグループから選択する</button>`;
+  document.getElementById("add").onclick=()=>choiceEditor();
+  document.getElementById("start").onclick=()=>{selectedId=null;screen="select";render()};
+  main.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>choiceEditor(b.dataset.edit));
+  main.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("この共通選択肢を削除しますか？")){data.choices=data.choices.filter(c=>c.id!==b.dataset.del);data.records.forEach(r=>{if(r.choiceId===b.dataset.del){r.choiceId="";r.choiceName=""}});save();render()}});
 }
-async function editChoice(id=null){
-  const old=data.choices.find(c=>c.id===id),name=prompt("選択肢の名前",old?.name||"");if(name===null||!name.trim())return;
+async function choiceEditor(editId=null){
+  const old=data.choices.find(c=>c.id===editId);
+  const name=prompt("選択肢の名前",old?.name||"");
+  if(name===null||!name.trim())return;
   const input=document.createElement("input");input.type="file";input.accept="image/*";
-  if(old?.image&&!confirm("画像を変更しますか？（キャンセルで現在の画像を維持）")){old.name=name.trim();save();render();return}
-  input.onchange=async()=>{let image=old?.image||null;if(input.files[0])image=await fileToData(input.files[0]);if(old){old.name=name.trim();old.image=image}else data.choices.push({id:crypto.randomUUID(),name:name.trim(),image});save();render()};input.click();
-}
-function select(){
-  const g=group(); if(!g)return;
-  main.style.paddingBottom="150px";
-  const chosen=data.choices.find(c=>c.id===selectedId);
-  main.innerHTML=`
-    ${data.choices.length?`<div class="grid">${data.choices.map(c=>`
-      <button class="cell ${selectedId===c.id?"selected":""}" data-c="${c.id}">
-        ${c.image?`<img src="${c.image}">`:`<div class="placeholder">＋</div>`}
-        <div class="cellName">${esc(c.name)}</div>
-      </button>`).join("")}</div>`:`<div class="empty">選択肢がありません。</div>`}
-    <div class="memoArea">
-      <label>📝 メモ</label>
-      <textarea id="recordMemo" placeholder="メモを入力してください"></textarea>
-    </div>
-    <div class="confirm">
-      <div id="selectedInfo" class="selectedInfo">${chosen?`選択中：${esc(chosen.name)}`:"選択肢は未選択（メモだけでも保存できます）"}</div>
-      <button id="ok">完了</button>
-    </div>`;
-  main.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{
-    selectedId=b.dataset.c; render();
-  });
-  document.getElementById("ok").onclick=()=>{
-    const memo=document.getElementById("recordMemo").value.trim();
-    const c=data.choices.find(x=>x.id===selectedId);
-    if(!c && !memo){alert("選択肢を選ぶか、メモを入力してください。");return}
-    data.records.unshift({
-      id:crypto.randomUUID(),
-      groupId:g.id,
-      groupName:g.name,
-      choiceId:c?.id||"",
-      choiceName:c?.name||"",
-      memo,
-      date:new Date().toISOString()
-    });
-    save(); alert("記録しました"); selectedId=null; render();
+  if(old?.image && !confirm("画像を変更しますか？\nキャンセルなら現在の画像を維持します。")){
+    old.name=name.trim();save();render();return;
+  }
+  input.onchange=async()=>{let image=old?.image||null;if(input.files[0])image=await fileToData(input.files[0]);
+    if(old)old.name=name.trim(),old.image=image;
+    else data.choices.push({id:crypto.randomUUID(),name:name.trim(),image});
+    save();render();
   };
+  input.click();
 }
-function history(){
-  main.innerHTML=data.records.length?data.records.map((r,i)=>`
-    <div class="record" data-record="${r.id||i}">
-      <b>${r.choiceName?esc(r.choiceName):"📝 メモのみ"}</b>
-      <small>${esc(r.groupName||"")}　${new Date(r.date).toLocaleString("ja-JP")}</small>
-      ${r.memo?`<div class="recordMemo">${esc(r.memo)}</div>`:""}
-      <div class="recordActions">
-        <button class="editMemoBtn" data-edit-memo="${r.id||i}">メモを編集</button>
-        <button class="editChoiceBtn" data-edit-choice="${r.id||i}">選択肢を編集</button>
-      </div>
-    </div>`).join(""):`<div class="empty">記録はまだありません。</div>`;
-  main.querySelectorAll("[data-edit-choice]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.editChoice;
-    const r=data.records.find(x=>String(x.id)===String(id)) || data.records[Number(id)];
-    if(!r)return;
-    const options=data.choices;
-    if(!options.length){alert("選択肢がありません。");return}
-    const names=options.map((c,n)=>`${n+1}. ${c.name}`).join("\n");
-    const answer=prompt("記録する選択肢を番号で入力してください。\n\n"+names, r.choiceName ? String(Math.max(1,options.findIndex(c=>c.id===r.choiceId)+1)) : "");
-    if(answer===null)return;
-    const n=parseInt(answer,10);
-    if(!Number.isInteger(n)||n<1||n>options.length){alert("正しい番号を入力してください。");return}
-    const c=options[n-1];
-    r.choiceId=c.id;
-    r.choiceName=c.name;
-    save(); render();
-  });
-  main.querySelectorAll("[data-edit-memo]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.editMemo;
-    const r=data.records.find(x=>String(x.id)===String(id)) || data.records[Number(id)];
-    if(!r)return;
-    const memo=prompt("メモを編集",r.memo||"");
-    if(memo===null)return;
-    r.memo=memo;
-    save(); render();
+function renderSelect(){
+  const g=group();if(!g){screen="home";return render()}
+  const chosen=data.choices.find(c=>c.id===selectedId);
+  main.innerHTML=`<div class="grid">${data.choices.map(c=>`<button class="cell ${selectedId===c.id?"selected":""}" data-c="${c.id}">
+    ${c.image?`<img src="${c.image}">`:`<div class="placeholder">＋</div>`}<div class="cellName">${esc(c.name)}</div></button>`).join("")}</div>
+    <div class="memoArea"><label>📝 メモ</label><textarea id="recordMemo" placeholder="メモを入力してください"></textarea></div>
+    <div class="confirm"><div class="note" style="text-align:center;margin-bottom:7px">${chosen?`選択中：${esc(chosen.name)}`:"選択肢は未選択（メモだけでも保存できます）"}</div><button id="confirm">完了</button></div>`;
+  main.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{selectedId=b.dataset.c;render()});
+  document.getElementById("confirm").onclick=()=>{
+    const memo=document.getElementById("recordMemo").value.trim(),c=data.choices.find(x=>x.id===selectedId);
+    if(!c&&!memo){alert("選択肢を選ぶか、メモを入力してください。");return}
+    data.records.unshift({id:crypto.randomUUID(),groupId:g.id,groupName:g.name,choiceId:c?.id||"",choiceName:c?.name||"",memo,date:new Date().toISOString()});
+    save();alert("記録しました");selectedId=null;render();
+  }
+}
+function renderHistory(){
+  if(!recordGroupId){
+    const gs=data.groups.filter(g=>data.records.some(r=>r.groupId===g.id));
+    main.innerHTML=gs.length?gs.map(g=>`<button class="historyGroup" data-rg="${g.id}"><div class="groupIcon">▦</div><div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件の記録</div></div></button>`).join(""):`<div class="empty">まだ記録がありません。</div>`;
+    main.querySelectorAll("[data-rg]").forEach(b=>b.onclick=()=>{recordGroupId=b.dataset.rg;render()});
+    return;
+  }
+  const g=data.groups.find(x=>x.id===recordGroupId);
+  if(!g){recordGroupId=null;return render()}
+  const rs=data.records.filter(r=>r.groupId===g.id).slice().reverse();
+  main.innerHTML=`<button class="backToGroups" id="backRecords">‹ 記録グループ一覧</button>
+  <div class="tableWrap"><table class="recordTable"><thead><tr><th>日付・時間</th><th>選択</th><th>メモ</th><th>編集</th></tr></thead><tbody>
+  ${rs.map((r,i)=>{const c=data.choices.find(x=>x.id===r.choiceId);return `<tr><td>${new Date(r.date).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</td><td>${c?.image?`<img src="${c.image}" class="recordIcon">`:esc(r.choiceName||"—")}</td><td class="recordMemoCell">${esc(r.memo||"")}</td><td><button class="rowEdit" data-er="${r.id||i}">編集</button></td></tr>`}).join("")}</tbody></table></div>`;
+  document.getElementById("backRecords").onclick=()=>{recordGroupId=null;render()};
+  main.querySelectorAll("[data-er]").forEach(b=>b.onclick=()=>{
+    const r=data.records.find(x=>String(x.id)===String(b.dataset.er));if(!r)return;
+    const list=data.choices.map((c,i)=>`${i+1}. ${c.name}`).join("\n");
+    const current=r.choiceId?data.choices.findIndex(c=>c.id===r.choiceId)+1:"";
+    const a=prompt("選択肢の番号（空欄で選択なし）\n\n"+list,String(current));if(a===null)return;
+    const m=prompt("メモを編集",r.memo||"");if(m===null)return;
+    if(a.trim()===""){r.choiceId="";r.choiceName=""}else{const n=parseInt(a,10);if(n<1||n>data.choices.length){alert("正しい番号を入力してください");return}const c=data.choices[n-1];r.choiceId=c.id;r.choiceName=c.name}
+    r.memo=m;save();render();
   });
 }
-back.onclick=()=>{screen="home";render()};
-document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{screen=b.dataset.tab;render();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b))});
+back.onclick=()=>{if(screen==="select"||screen==="manage"||screen==="createGroup"){screen="home";render()}};
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{screen=b.dataset.tab;if(screen==="history")recordGroupId=null;render();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b))});
 render();
