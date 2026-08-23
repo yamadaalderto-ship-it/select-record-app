@@ -196,92 +196,32 @@ function editGroupIcon(groupId){
 function escapeHtml(v){
   return String(v ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 }
-function renderCreateGroup(){
-  const icons = (data.icons || []);
-  const choices = (data.choices || []);
-  const current = window.__creatingGroup || {icon:null,name:"",choiceIds:[]};
-
-  main.innerHTML = `
-    <section class="panel">
-      <h2>グループを作る</h2>
-
-      <div class="step">
-        <div class="stepTitle">1. アイコンを選択</div>
-        <div class="pickerGrid" id="groupIconPicker">
-          ${icons.map(ic=>`
-            <button class="pickerItem ${current.icon===ic.id?'selected':''}" data-group-icon="${ic.id}">
-              ${ic.image ? `<img src="${ic.image}" alt="">` : (ic.label || "＋")}
-            </button>`).join("")}
-        </div>
-      </div>
-
-      <div class="step">
-        <div class="stepTitle">2. 名前入力</div>
-        <input id="groupNameInput" class="textInput" type="text"
-          placeholder="グループ名を入力" value="${escapeHtml(current.name || "")}">
-      </div>
-
-      <div class="step">
-        <div class="stepTitle">3. 選択肢の選択</div>
-        <div class="pickerGrid" id="groupChoicePicker">
-          ${choices.map(ch=>`
-            <button class="choicePickerItem ${current.choiceIds.includes(ch.id)?'selected':''}" data-group-choice="${ch.id}">
-              ${ch.image ? `<img src="${ch.image}" alt="">` : (ch.label || ch.name || "")}
-            </button>`).join("")}
-        </div>
-      </div>
-
-      <button class="primary" id="finishCreateGroup">完了</button>
-      <button class="secondary" id="cancelCreateGroup">キャンセル</button>
-    </section>`;
-
-  main.querySelectorAll("[data-group-icon]").forEach(b=>{
-    b.onclick=()=>{
-      current.icon=b.dataset.groupIcon;
-      window.__creatingGroup=current;
-      renderCreateGroup();
-    };
-  });
-
-  main.querySelector("#groupNameInput").oninput=e=>{
-    current.name=e.target.value;
-    window.__creatingGroup=current;
-  };
-
-  main.querySelectorAll("[data-group-choice]").forEach(b=>{
-    b.onclick=()=>{
-      const id=b.dataset.groupChoice;
-      current.choiceIds=current.choiceIds.includes(id)
-        ? current.choiceIds.filter(x=>x!==id)
-        : [...current.choiceIds,id];
-      window.__creatingGroup=current;
-      renderCreateGroup();
-    };
-  });
-
-  main.querySelector("#finishCreateGroup").onclick=()=>{
-    const name=(current.name||"").trim();
-    if(!current.icon || !name){
-      alert("アイコンとグループ名を入力してください");
-      return;
-    }
-    data.groups=data.groups||[];
-    data.groups.push({
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-      name,
-      icon: current.icon,
-      choiceIds:[...(current.choiceIds||[])],
-      createdAt: Date.now()
-    });
-    window.__creatingGroup=null;
-    save();
-    render();
-  };
-
-  main.querySelector("#cancelCreateGroup").onclick=()=>{
-    window.__creatingGroup=null;
-    render();
-  };
+function renderCreateGroup(step=1){
+  const icons=data.icons||[], choices=data.choices||[];
+  const cur=window.__creatingGroup||{icon:null,name:"",choiceIds:[]};
+  window.__creatingGroup=cur;
+  if(step===1){
+    main.innerHTML=`<section class="panel"><h2>グループを作る</h2>
+      <div class="stepTitle">① アイコンを選択</div>
+      <div class="pickerGrid">${icons.map(ic=>`<button class="pickerItem ${cur.icon===ic.id?'selected':''}" data-group-icon="${ic.id}">${ic.image?`<img src="${ic.image}" alt="">`:(ic.label||"＋")}</button>`).join("")}</div>
+      <button class="primary" id="nextGroupStep">次へ</button><button class="secondary" id="cancelGroup">キャンセル</button></section>`;
+    main.querySelectorAll("[data-group-icon]").forEach(b=>b.onclick=()=>{cur.icon=b.dataset.groupIcon;renderCreateGroup(1)});
+    main.querySelector("#nextGroupStep").onclick=()=>cur.icon?renderCreateGroup(2):alert("アイコンを選択してください");
+  }else if(step===2){
+    main.innerHTML=`<section class="panel"><h2>グループを作る</h2>
+      <div class="stepTitle">② 名前を入力</div><input id="groupNameInput" class="textInput" type="text" placeholder="グループ名を入力" value="${escapeHtml(cur.name||"")}">
+      <button class="primary" id="nextGroupStep">次へ</button><button class="secondary" id="backGroupStep">戻る</button></section>`;
+    main.querySelector("#groupNameInput").oninput=e=>cur.name=e.target.value;
+    main.querySelector("#nextGroupStep").onclick=()=>{cur.name=(cur.name||"").trim();cur.name?renderCreateGroup(3):alert("グループ名を入力してください")};
+    main.querySelector("#backGroupStep").onclick=()=>renderCreateGroup(1);
+  }else{
+    main.innerHTML=`<section class="panel"><h2>グループを作る</h2>
+      <div class="stepTitle">③ 選択肢を選択</div><div class="pickerGrid">${choices.map(ch=>`<button class="choicePickerItem ${cur.choiceIds.includes(ch.id)?'selected':''}" data-group-choice="${ch.id}">${ch.image?`<img src="${ch.image}" alt="">`:(ch.label||ch.name||"")}</button>`).join("")}</div>
+      <button class="primary" id="finishCreateGroup">完了</button><button class="secondary" id="backGroupStep">戻る</button></section>`;
+    main.querySelectorAll("[data-group-choice]").forEach(b=>b.onclick=()=>{const id=b.dataset.groupChoice;cur.choiceIds=cur.choiceIds.includes(id)?cur.choiceIds.filter(x=>x!==id):[...cur.choiceIds,id];b.classList.toggle("selected",cur.choiceIds.includes(id))});
+    main.querySelector("#backGroupStep").onclick=()=>renderCreateGroup(2);
+    main.querySelector("#finishCreateGroup").onclick=()=>{data.groups=data.groups||[];data.groups.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name:cur.name,icon:cur.icon,choiceIds:[...cur.choiceIds],createdAt:Date.now()});window.__creatingGroup=null;save();render()};
+  }
 }
 
 function renderIcons(){
