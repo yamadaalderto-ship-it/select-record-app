@@ -90,6 +90,12 @@ function showIconFilter(kind){
   openChoiceModal("絞り込み", icons.map(i=>({id:i.id,label:i.name||"アイコン",image:i.image,selected:i.image===current})), item=>{
     if(kind==="home") homeFilterIcon=item.image; else historyFilterIcon=item.image;
     render();
+  }, {
+    clearLabel:"",
+    onClear:()=>{
+      if(kind==="home") homeFilterIcon=null; else historyFilterIcon=null;
+      render();
+    }
   });
 }
 function showSort(kind){
@@ -102,13 +108,15 @@ function showSort(kind){
     render();
   });
 }
-function openChoiceModal(titleText,items,onPick){
+function openChoiceModal(titleText,items,onPick,options={}){
   const wrap=document.createElement("div");
   wrap.className="choiceModal";
-  wrap.innerHTML=`<div class="choiceModalBackdrop"></div><div class="choiceModalPanel"><div class="choiceModalTitle">${esc(titleText)}</div><div class="choiceModalList">${items.map(i=>`<button class="modalChoice ${i.selected?"selected":""}" data-modal-id="${esc(i.id)}">${i.image?`<img src="${esc(i.image)}" alt="">`:``}<span>${esc(i.label)}</span></button>`).join("")}</div><button class="modalCancel">キャンセル</button></div>`;
+  wrap.innerHTML=`<div class="choiceModalBackdrop"></div><div class="choiceModalPanel"><div class="choiceModalTitle">${esc(titleText)}</div><div class="choiceModalList">${items.map(i=>`<button class="modalChoice ${i.selected?"selected":""}" data-modal-id="${esc(i.id)}">${i.image?`<img src="${esc(i.image)}" alt="">`:``}<span>${esc(i.label)}</span></button>`).join("")}</div>${options.clearLabel?`<button class="filterClearBtn">${esc(options.clearLabel)}</button>`:""}<button class="modalCancel">キャンセル</button></div>`;
   document.body.appendChild(wrap);
   wrap.querySelector(".choiceModalBackdrop").onclick=()=>wrap.remove();
   wrap.querySelector(".modalCancel").onclick=()=>wrap.remove();
+  const clearBtn=wrap.querySelector(".filterClearBtn");
+  if(clearBtn) clearBtn.onclick=()=>{wrap.remove();if(options.onClear)options.onClear()};
   wrap.querySelectorAll("[data-modal-id]").forEach(b=>b.onclick=()=>{const item=items.find(i=>i.id===b.dataset.modalId);wrap.remove();if(item)onPick(item)});
 }
 function renderHome(){
@@ -277,3 +285,18 @@ function renderHistory(){
 back.onclick=()=>{if(screen==="pickIcon"){screen="createGroup";render();return}if(screen==="select"||screen==="manage"||screen==="createGroup"||screen==="icons"){screen="home";render()}};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{screen=b.dataset.tab;if(screen==="history")recordGroupId=null;render();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b))});
 render();
+
+// v14: filter button toggles between opening icon selection and clearing an active filter.
+function toggleFilter(){
+  if (typeof state !== "undefined" && state.filterIcon) {
+    state.filterIcon = null;
+    if (typeof save === "function") save();
+    if (typeof render === "function") render();
+    return;
+  }
+  if (typeof openFilterPicker === "function") {
+    openFilterPicker();
+  } else if (typeof showFilterPicker === "function") {
+    showFilterPicker();
+  }
+}
