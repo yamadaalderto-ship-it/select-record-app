@@ -28,19 +28,14 @@ const BUILTIN_CHOICES=[
   ["スタートダッシュ","S3 Ability Opening Gambit.png"],["受け身術","S3 Ability Drop Roller.png"]
 ].map(([name,file])=>({id:"builtin_choice_"+name,name,image:"https://splatoonwiki.org/wiki/Special:Redirect/file/"+encodeURIComponent(file).replace(/%20/g,"_")}));
 
-function resolveIconForGroup(value){
-  if(!value) return null;
-  return (data.icons||[]).find(ic=>String(ic.id)===String(value))||null;
-}
-
-function getSharedIcon(id){return (data.icons||[]).find(ic=>String(ic.id)===String(id))||null;}
+function getSharedIcon(id){return (data.icons||[]).find(ic=>String(ic.id)===String(id)||ic.image===id)||null;}
 
 function applyBuiltins(){
   const oldChoiceByName=new Map(data.choices.map(c=>[c.name,c]));
   data.icons=BUILTIN_ICONS.map(i=>({...i}));
   data.choices=BUILTIN_CHOICES.map(c=>({...c}));
   data.groups.forEach(g=>{
-    if(g.icon&&!data.icons.some(i=>i.image===g.icon))g.icon=null;
+    if(g.icon&&!data.icons.some(i=>i.id===String(g.icon)||i.image===g.icon))g.icon=null;
   });
   data.records.forEach(r=>{
     const c=oldChoiceByName.get(r.choiceName);
@@ -244,7 +239,7 @@ function renderPickIcon(){
     if(!i)return;
     if(editingGroupIconId){
       const g=data.groups.find(x=>x.id===editingGroupIconId);
-      if(g){g.icon=i.image;save();}
+      if(g){g.icon=i.id;g.iconId=i.id;save();}
       editingGroupIconId=null; screen="home"; render(); return;
     }
     screen="createGroup"; render();
@@ -368,13 +363,4 @@ function toggleFilterButton(){
   } catch(e) {}
   if (typeof openFilterPicker === "function") openFilterPicker();
   else if (typeof showFilterPicker === "function") showFilterPicker();
-}
-
-function saveEditedGroupIcon(groupId, iconId){
-  const g=(data.groups||[]).find(x=>String(x.id)===String(groupId));
-  if(!g || !iconId) return false;
-  g.icon=String(iconId);
-  g.iconId=String(iconId);
-  save();
-  return true;
 }
