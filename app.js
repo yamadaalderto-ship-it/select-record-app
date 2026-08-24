@@ -98,7 +98,7 @@ function migrate(){
 migrate();
 applyBuiltins();
 
-let screen="home",currentGroupId=null,selectedId=null,recordGroupId=null;
+let screen="home",currentGroupId=null,selectedId=null,recordGroupId=null,editingRecordId=null;
 let homeFilterIcon=null,historyFilterIcon=null,homeSort="created",historySort="created";
 const main=document.getElementById("main"),title=document.getElementById("title"),back=document.getElementById("backBtn");
 function save(){localStorage.setItem(KEY,JSON.stringify(data))}
@@ -107,7 +107,7 @@ function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function fileToData(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
 function render(){
   main.style.paddingBottom="88px";
-  title.textContent=screen==="home"?"ホーム":screen==="history"?"記録":screen==="createGroup"?"グループを作る":screen==="manage"?"選択肢を管理":screen==="icons"?"アイコンを管理":screen==="pickIcon"?"アイコンを選択":group()?.name||"選択";
+  title.textContent=screen==="home"?"ホーム":screen==="history"?"記録":screen==="createGroup"?"グループを作る":screen==="manage"?"選択肢を管理":screen==="icons"?"アイコンを管理":screen==="pickIcon"?"アイコンを選択":screen==="editRecord"?"記録を編集":group()?.name||"選択";
   back.classList.toggle("hidden",["home","history"].includes(screen));
   if(screen==="home")renderHome();
   else if(screen==="history")renderHistory();
@@ -115,6 +115,7 @@ function render(){
   else if(screen==="manage")renderManage();
   else if(screen==="icons")renderIcons();
   else if(screen==="pickIcon")renderPickIcon();
+  else if(screen==="editRecord")renderEditRecord();
   else if(screen==="select")renderSelect();
 }
 function sortGroups(list, mode){
@@ -196,32 +197,33 @@ function editGroupIcon(groupId){
 function escapeHtml(v){
   return String(v ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 }
-function renderCreateGroup(step=1){
-  const icons=data.icons||[], choices=data.choices||[];
-  const cur=window.__creatingGroup||{icon:null,name:"",choiceIds:[]};
+function renderCreateGroup(){
+  const cur=window.__creatingGroup||{name:""};
   window.__creatingGroup=cur;
-  if(step===1){
-    main.innerHTML=`<section class="panel"><h2>グループを作る</h2>
-      <div class="stepTitle">① アイコンを選択</div>
-      <div class="pickerGrid">${icons.map(ic=>`<button class="pickerItem ${cur.icon===ic.id?'selected':''}" data-group-icon="${ic.id}">${ic.image?`<img src="${ic.image}" alt="">`:(ic.label||"＋")}</button>`).join("")}</div>
-      <button class="primary" id="nextGroupStep">次へ</button><button class="secondary" id="cancelGroup">キャンセル</button></section>`;
-    main.querySelectorAll("[data-group-icon]").forEach(b=>b.onclick=()=>{cur.icon=b.dataset.groupIcon;renderCreateGroup(1)});
-    main.querySelector("#nextGroupStep").onclick=()=>cur.icon?renderCreateGroup(2):alert("アイコンを選択してください");
-  }else if(step===2){
-    main.innerHTML=`<section class="panel"><h2>グループを作る</h2>
-      <div class="stepTitle">② 名前を入力</div><input id="groupNameInput" class="textInput" type="text" placeholder="グループ名を入力" value="${escapeHtml(cur.name||"")}">
-      <button class="primary" id="nextGroupStep">次へ</button><button class="secondary" id="backGroupStep">戻る</button></section>`;
-    main.querySelector("#groupNameInput").oninput=e=>cur.name=e.target.value;
-    main.querySelector("#nextGroupStep").onclick=()=>{cur.name=(cur.name||"").trim();cur.name?renderCreateGroup(3):alert("グループ名を入力してください")};
-    main.querySelector("#backGroupStep").onclick=()=>renderCreateGroup(1);
-  }else{
-    main.innerHTML=`<section class="panel"><h2>グループを作る</h2>
-      <div class="stepTitle">③ 選択肢を選択</div><div class="pickerGrid">${choices.map(ch=>`<button class="choicePickerItem ${cur.choiceIds.includes(ch.id)?'selected':''}" data-group-choice="${ch.id}">${ch.image?`<img src="${ch.image}" alt="">`:(ch.label||ch.name||"")}</button>`).join("")}</div>
-      <button class="primary" id="finishCreateGroup">完了</button><button class="secondary" id="backGroupStep">戻る</button></section>`;
-    main.querySelectorAll("[data-group-choice]").forEach(b=>b.onclick=()=>{const id=b.dataset.groupChoice;cur.choiceIds=cur.choiceIds.includes(id)?cur.choiceIds.filter(x=>x!==id):[...cur.choiceIds,id];b.classList.toggle("selected",cur.choiceIds.includes(id))});
-    main.querySelector("#backGroupStep").onclick=()=>renderCreateGroup(2);
-    main.querySelector("#finishCreateGroup").onclick=()=>{data.groups=data.groups||[];data.groups.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name:cur.name,icon:cur.icon,choiceIds:[...cur.choiceIds],createdAt:Date.now()});window.__creatingGroup=null;save();render()};
-  }
+  main.innerHTML=`<section class="panel"><h2>グループを作る</h2>
+    <div class="stepTitle">名前を入力</div>
+    <input id="groupNameInput" class="input" type="text" placeholder="グループ名を入力" value="${esc(cur.name||"")}">
+    <button class="primary" id="finishCreateGroup">完了</button>
+  </section>`;
+  const input=document.getElementById("groupNameInput");
+  input.oninput=e=>cur.name=e.target.value;
+  input.focus();
+  document.getElementById("finishCreateGroup").onclick=()=>{
+    cur.name=(cur.name||"").trim();
+    if(!cur.name){alert("グループ名を入力してください。");return}
+    data.groups=data.groups||[];
+    data.groups.push({
+      id:uid(),
+      name:cur.name,
+      icon:null,
+      choiceIds:[],
+      createdAt:Date.now()
+    });
+    window.__creatingGroup=null;
+    save();
+    screen="home";
+    render();
+  };
 }
 
 function renderIcons(){
@@ -295,15 +297,44 @@ function renderHistory(){
   document.getElementById("backRecordGroups").onclick=()=>{recordGroupId=null;render()};
   main.querySelectorAll("[data-record-edit]").forEach(btn=>btn.onclick=()=>{
     const r=data.records.find(x=>String(x.id)===String(btn.dataset.recordEdit));if(!r)return;
-    const list=data.choices.map((c,i)=>`${i+1}. ${c.name}`).join("\n");const current=r.choiceId?data.choices.findIndex(c=>c.id===r.choiceId)+1:"";
-    const answer=prompt("選択肢を変更する場合は番号を入力してください。\n空欄＝選択肢なし\n\n"+list,String(current));if(answer===null)return;
-    const memo=prompt("メモを編集",r.memo||"");if(memo===null)return;
-    if(answer.trim()===""){r.choiceId="";r.choiceName=""}else{const n=parseInt(answer,10);if(!Number.isInteger(n)||n<1||n>data.choices.length){alert("正しい番号を入力してください。");return}const c=data.choices[n-1];r.choiceId=c.id;r.choiceName=c.name}
-    r.memo=memo;save();render();
+    editingRecordId=r.id;
+    renderEditRecord();
   });
 }
 
-back.onclick=()=>{if(screen==="pickIcon"){screen="createGroup";render();return}if(screen==="select"||screen==="manage"||screen==="createGroup"||screen==="icons"){screen="home";render()}};
+function renderEditRecord(){
+  const r=data.records.find(x=>String(x.id)===String(editingRecordId));
+  if(!r){editingRecordId=null;recordGroupId=null;screen="history";return render()}
+  const g=data.groups.find(x=>x.id===r.groupId);
+  const selectedId=r.choiceId||"";
+  main.innerHTML=`<button class="backToGroups" id="backEditRecord">‹ 記録</button>
+    <div class="recordGroupTitle">${esc(g?.name||r.groupName||"記録")}</div>
+    ${data.choices.length?`<div class="grid">${data.choices.map(c=>`<button class="cell ${selectedId===c.id?"selected":""}" data-edit-choice="${esc(c.id)}"><img src="${esc(c.image)}" alt="${esc(c.name)}"></button>`).join("")}</div>`:`<div class="empty">選択肢がありません。</div>`}
+    <div class="memoArea"><label>📝 メモ</label><textarea id="editRecordMemo" placeholder="メモを入力してください">${esc(r.memo||"")}</textarea></div>
+    <div class="confirm"><div class="note" style="text-align:center;margin-bottom:7px">${selectedId?"選択中の選択肢を変更できます":"選択肢は未選択（メモだけでも保存できます）"}</div><button id="saveEditedRecord">完了</button></div>`;
+  let currentChoiceId=selectedId;
+  main.querySelectorAll("[data-edit-choice]").forEach(b=>b.onclick=()=>{
+    currentChoiceId=b.dataset.editChoice;
+    main.querySelectorAll("[data-edit-choice]").forEach(x=>x.classList.toggle("selected",x===b));
+  });
+  document.getElementById("backEditRecord").onclick=()=>{
+    editingRecordId=null;
+    render();
+  };
+  document.getElementById("saveEditedRecord").onclick=()=>{
+    const memo=document.getElementById("editRecordMemo").value.trim();
+    if(!currentChoiceId&&!memo){alert("選択肢を選ぶか、メモを入力してください。");return}
+    const c=data.choices.find(x=>x.id===currentChoiceId);
+    r.choiceId=c?.id||"";
+    r.choiceName=c?.name||"";
+    r.memo=memo;
+    save();
+    editingRecordId=null;
+    render();
+  };
+}
+
+back.onclick=()=>{if(screen==="pickIcon"){if(editingGroupIconId){editingGroupIconId=null;screen="home";render()}else{screen="home";render()}return}if(screen==="select"||screen==="manage"||screen==="createGroup"||screen==="icons"){screen="home";render()}};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{screen=b.dataset.tab;if(screen==="history")recordGroupId=null;render();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b))});
 render();
 
