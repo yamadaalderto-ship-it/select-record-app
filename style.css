@@ -80,8 +80,5 @@ body,#app,main,.panel,.card,.groupCard,.group-list,.groupItem{background:#E5E5E5
   outline-offset:-3px;
 }
 
-.recordTableWrap{width:100%;overflow-x:auto}
-.recordTable{width:100%;border-collapse:collapse;table-layout:fixed}
-.recordTable th,.recordTable td{padding:8px 4px;border-bottom:1px solid rgba(0,0,0,.12);text-align:center;vertical-align:middle}
-.recordIcon{width:42px;height:42px;object-fit:contain;display:block;margin:auto}
-.deleteRecordBtn{border:1px solid #d33;color:#c22;background:transparent;border-radius:8px;padding:6px 10px}
+.rowDelete{border:1px solid #d32f2f;background:#E5E5E5;color:#d32f2f;border-radius:8px;padding:7px 10px;font-weight:700;white-space:nowrap}
+.recordTable th:nth-child(1),.recordTable td:nth-child(1){white-space:nowrap}

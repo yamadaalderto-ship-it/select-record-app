@@ -366,45 +366,59 @@ function renderHistory(){
   const g=data.groups.find(x=>x.id===recordGroupId);
   if(!g){recordGroupId=null;render();return}
   const records=data.records.filter(r=>r.groupId===g.id).slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
-  main.innerHTML=`<button class="backToGroups" id="backRecordGroups">‹ 記録グループ一覧</button><div class="recordGroupTitle">${esc(g.name)}</div>${records.length?`<div class="tableWrap"><table class="recordTable"><thead><tr><th>日付・時間</th><th>選択</th><th>メモ</th><th>編集</th></tr></thead><tbody>${records.map(r=>{const c=r.choiceId?data.choices.find(x=>x.id===r.choiceId):null;const choice=c?(c.image?`<img src="${c.image}" class="recordIcon" alt="${esc(c.name)}">`:`<span>${esc(c.name)}</span>`):"";return `<tr><td>${new Date(r.date).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</td><td class="recordChoice">${choice}</td><td class="recordMemoCell">${esc(r.memo||"")}</td><td><button class="rowEdit" data-record-edit="${r.id}">編集</button></td></tr>`}).join("")}</tbody></table></div>`:`<div class="empty">このグループには記録がありません。</div>`}`;
+  main.innerHTML=`<button class="backToGroups" id="backRecordGroups">‹ 記録グループ一覧</button><div class="recordGroupTitle">${esc(g.name)}</div>${records.length?`<div class="tableWrap"><table class="recordTable"><thead><tr><th>回数</th><th>選択</th><th>メモ</th><th>編集</th><th>削除</th></tr></thead><tbody>${records.map((r,index)=>{const c=r.choiceId?data.choices.find(x=>x.id===r.choiceId):null;const choice=c?(c.image?`<img src="${c.image}" class="recordIcon" alt="${esc(c.name)}">`:`<span>${esc(c.name)}</span>`):"";return `<tr><td>${index+1}</td><td class="recordChoice">${choice}</td><td class="recordMemoCell">${esc(r.memo||"")}</td><td><button class="rowEdit" data-record-edit="${r.id}">編集</button></td><td><button class="rowDelete" data-record-delete="${r.id}">削除</button></td></tr>`}).join("")}</tbody></table></div>`:`<div class="empty">このグループには記録がありません。</div>`}`;
   document.getElementById("backRecordGroups").onclick=()=>{recordGroupId=null;render()};
   main.querySelectorAll("[data-record-edit]").forEach(btn=>btn.onclick=()=>{
     const r=data.records.find(x=>String(x.id)===String(btn.dataset.recordEdit));if(!r)return;
     editingRecordId=r.id;
     renderEditRecord();
   });
-}
-
-function renderEditRecord(groupId){
-  const g=(data.groups||[]).find(x=>String(x.id)===String(groupId));
-  if(!g){screen="home";return render();}
-  const records=(data.records||[]).filter(r=>String(r.groupId)===String(groupId));
-  main.innerHTML=`<section class="panel recordPanel">
-    <h2>${esc(g.name||"記録")}</h2>
-    <div class="recordTableWrap"><table class="recordTable">
-      <thead><tr><th>回数</th><th>アイコン</th><th>メモ</th><th>編集</th><th>削除</th></tr></thead>
-      <tbody>${records.map((r,i)=>{
-        const ic=(data.icons||[]).find(x=>String(x.id)===String(r.choiceId||r.iconId));
-        return `<tr><td>${i+1}</td>
-          <td>${ic?.image?`<img class="recordIcon" src="${esc(ic.image)}" alt="">`:esc(ic?.label||r.choiceName||"")}</td>
-          <td>${esc(r.memo||"")}</td>
-          <td><button type="button" class="editRecordBtn" data-record-edit="${esc(r.id)}">編集</button></td>
-          <td><button type="button" class="deleteRecordBtn" data-record-delete="${esc(r.id)}">削除</button></td>
-        </tr>`;
-      }).join("")}</tbody>
-    </table></div>
-  </section>`;
-  main.querySelectorAll("[data-record-edit]").forEach(btn=>btn.onclick=()=>{
-    editingRecordId=btn.dataset.recordEdit; renderEditRecord();
-  });
   main.querySelectorAll("[data-record-delete]").forEach(btn=>btn.onclick=()=>{
-    const id=btn.dataset.recordDelete;
+    const id=String(btn.dataset.recordDelete);
     if(!confirm("この記録を削除しますか？"))return;
-    data.records=(data.records||[]).filter(r=>String(r.id)!==String(id));
-    save(); renderEditRecord(groupId);
+    data.records=data.records.filter(r=>String(r.id)!==id);
+    save();
+    render();
   });
 }
 
+function renderEditRecord(){
+  const r=data.records.find(x=>String(x.id)===String(editingRecordId));
+  if(!r){editingRecordId=null;recordGroupId=null;screen="history";return render()}
+  const g=data.groups.find(x=>x.id===r.groupId);
+  const selectedId=r.choiceId||"";
+  main.innerHTML=`<button class="backToGroups" id="backEditRecord">‹ 記録</button>
+    <div class="recordGroupTitle">${esc(g?.name||r.groupName||"記録")}</div>
+    ${data.choices.length?`<div class="grid">${data.choices.map(c=>`<button class="cell ${selectedId===c.id?"selected":""}" data-edit-choice="${esc(c.id)}"><img src="${esc(c.image)}" alt="${esc(c.name)}"></button>`).join("")}</div>`:`<div class="empty">選択肢がありません。</div>`}
+    <div class="memoArea"><label>📝 メモ</label><textarea id="editRecordMemo" placeholder="メモを入力してください">${esc(r.memo||"")}</textarea></div>
+    <div class="confirm"><div class="note" style="text-align:center;margin-bottom:7px">${selectedId?"選択中の選択肢を変更できます":"選択肢は未選択（メモだけでも保存できます）"}</div><button id="saveEditedRecord">完了</button></div>`;
+  let currentChoiceId=selectedId;
+  main.querySelectorAll("[data-edit-choice]").forEach(b=>b.onclick=()=>{
+    currentChoiceId=b.dataset.editChoice;
+    main.querySelectorAll("[data-edit-choice]").forEach(x=>x.classList.toggle("selected",x===b));
+  });
+  document.getElementById("backEditRecord").onclick=()=>{
+    editingRecordId=null;
+    render();
+  };
+  document.getElementById("saveEditedRecord").onclick=()=>{
+    const memo=document.getElementById("editRecordMemo").value.trim();
+    if(!currentChoiceId&&!memo){alert("選択肢を選ぶか、メモを入力してください。");return}
+    const c=data.choices.find(x=>x.id===currentChoiceId);
+    r.choiceId=c?.id||"";
+    r.choiceName=c?.name||"";
+    r.memo=memo;
+    save();
+    editingRecordId=null;
+    render();
+  };
+}
+
+back.onclick=()=>{if(screen==="pickIcon"){if(editingGroupIconId){editingGroupIconId=null;screen="home";render()}else{screen="home";render()}return}if(screen==="select"||screen==="manage"||screen==="createGroup"||screen==="icons"){screen="home";render()}};
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{screen=b.dataset.tab;if(screen==="history")recordGroupId=null;render();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b))});
+render();
+
+// v14: filter button toggles between opening icon selection and clearing an active filter.
 function toggleFilter(){
   if (typeof state !== "undefined" && state.filterIcon) {
     state.filterIcon = null;
