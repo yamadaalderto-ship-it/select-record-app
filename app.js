@@ -201,27 +201,55 @@ function renderCreateGroup(step=1){
   const icons=data.icons||[];
   const cur=window.__creatingGroup||{icon:null,name:""};
   window.__creatingGroup=cur;
+
   if(step===1){
     main.innerHTML=`<section class="panel"><h2>グループを作る</h2>
       <div class="stepTitle">① アイコンを選択</div>
-      <div class="pickerGrid">${icons.map(ic=>`<button class="pickerItem ${cur.icon===ic.id?'selected':''}" data-group-icon="${esc(ic.id)}">${ic.image?`<img src="${esc(ic.image)}" alt="">`:(ic.label||"＋")}</button>`).join("")}</div>
+      <div class="pickerGrid">${icons.map(ic=>`
+        <button type="button" class="pickerItem ${cur.icon===ic.id?'selected':''}" data-group-icon="${esc(ic.id)}">
+          ${ic.image?`<img src="${esc(ic.image)}" alt="${esc(ic.label||"アイコン")}">`:(ic.label||"＋")}
+        </button>`).join("")}</div>
       <button class="primary" id="nextGroupStep">次へ</button></section>`;
-    main.querySelectorAll("[data-group-icon]").forEach(b=>b.onclick=()=>{cur.icon=b.dataset.groupIcon;renderCreateGroup(1)});
-    main.querySelector("#nextGroupStep").onclick=()=>cur.icon?renderCreateGroup(2):alert("アイコンを選択してください。");
+
+    main.querySelectorAll("[data-group-icon]").forEach(b=>{
+      b.addEventListener("click",()=>{
+        cur.icon=b.dataset.groupIcon;
+        main.querySelectorAll("[data-group-icon]").forEach(x=>x.classList.remove("selected"));
+        b.classList.add("selected");
+      });
+    });
+
+    main.querySelector("#nextGroupStep").onclick=()=>{
+      if(!cur.icon){alert("アイコンを選択してください。");return}
+      renderCreateGroup(2);
+    };
   }else{
     main.innerHTML=`<section class="panel"><h2>グループを作る</h2>
       <div class="stepTitle">② 名前を入力</div>
       <input id="groupNameInput" class="input" type="text" placeholder="グループ名を入力" value="${esc(cur.name||"")}">
       <button class="primary" id="finishCreateGroup">完了</button>
       <button class="secondary" id="backGroupStep">戻る</button></section>`;
-    const input=main.querySelector("#groupNameInput"); input.oninput=e=>cur.name=e.target.value; input.focus();
+
+    const input=main.querySelector("#groupNameInput");
+    input.oninput=e=>cur.name=e.target.value;
+    input.focus();
+
     main.querySelector("#backGroupStep").onclick=()=>renderCreateGroup(1);
     main.querySelector("#finishCreateGroup").onclick=()=>{
       cur.name=(cur.name||"").trim();
       if(!cur.name){alert("グループ名を入力してください。");return}
       data.groups=data.groups||[];
-      data.groups.push({id:uid(),name:cur.name,icon:cur.icon,choiceIds:[],createdAt:Date.now()});
-      window.__creatingGroup=null; save(); screen="home"; render();
+      data.groups.push({
+        id:uid(),
+        name:cur.name,
+        icon:cur.icon,
+        choiceIds:[],
+        createdAt:Date.now()
+      });
+      window.__creatingGroup=null;
+      save();
+      screen="home";
+      render();
     };
   }
 }

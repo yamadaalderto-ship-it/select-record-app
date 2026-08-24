@@ -44,3 +44,38 @@
 /* V22 */
 .grid,.iconPicker,.pickerGrid,.iconGrid,.choiceGrid{grid-template-columns:repeat(4,minmax(0,1fr))!important;}
 body,#app,main,.panel,.card,.groupCard,.group-list,.groupItem{background:#E5E5E5!important;}
+
+/* V23: group creation icon picker */
+.pickerGrid{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:10px!important;
+  width:100%;
+  box-sizing:border-box;
+}
+.pickerGrid .pickerItem,
+.pickerGrid button{
+  width:100%;
+  min-width:0;
+  aspect-ratio:1/1;
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  padding:8px;
+}
+.pickerGrid .pickerItem img,
+.pickerGrid button img{
+  width:100%;
+  height:100%;
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+  display:block;
+}
+.pickerGrid .pickerItem.selected,
+.pickerGrid button.selected{
+  outline:3px solid #007aff;
+  outline-offset:-3px;
+}
