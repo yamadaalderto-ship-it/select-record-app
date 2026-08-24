@@ -79,6 +79,3 @@ body,#app,main,.panel,.card,.groupCard,.group-list,.groupItem{background:#E5E5E5
   outline:3px solid #007aff;
   outline-offset:-3px;
 }
-
-.rowDelete{border:1px solid #d32f2f;background:#E5E5E5;color:#d32f2f;border-radius:8px;padding:7px 10px;font-weight:700;white-space:nowrap}
-.recordTable th:nth-child(1),.recordTable td:nth-child(1){white-space:nowrap}

@@ -366,19 +366,12 @@ function renderHistory(){
   const g=data.groups.find(x=>x.id===recordGroupId);
   if(!g){recordGroupId=null;render();return}
   const records=data.records.filter(r=>r.groupId===g.id).slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
-  main.innerHTML=`<button class="backToGroups" id="backRecordGroups">‹ 記録グループ一覧</button><div class="recordGroupTitle">${esc(g.name)}</div>${records.length?`<div class="tableWrap"><table class="recordTable"><thead><tr><th>回数</th><th>選択</th><th>メモ</th><th>編集</th><th>削除</th></tr></thead><tbody>${records.map((r,index)=>{const c=r.choiceId?data.choices.find(x=>x.id===r.choiceId):null;const choice=c?(c.image?`<img src="${c.image}" class="recordIcon" alt="${esc(c.name)}">`:`<span>${esc(c.name)}</span>`):"";return `<tr><td>${index+1}</td><td class="recordChoice">${choice}</td><td class="recordMemoCell">${esc(r.memo||"")}</td><td><button class="rowEdit" data-record-edit="${r.id}">編集</button></td><td><button class="rowDelete" data-record-delete="${r.id}">削除</button></td></tr>`}).join("")}</tbody></table></div>`:`<div class="empty">このグループには記録がありません。</div>`}`;
+  main.innerHTML=`<button class="backToGroups" id="backRecordGroups">‹ 記録グループ一覧</button><div class="recordGroupTitle">${esc(g.name)}</div>${records.length?`<div class="tableWrap"><table class="recordTable"><thead><tr><th>日付・時間</th><th>選択</th><th>メモ</th><th>編集</th></tr></thead><tbody>${records.map(r=>{const c=r.choiceId?data.choices.find(x=>x.id===r.choiceId):null;const choice=c?(c.image?`<img src="${c.image}" class="recordIcon" alt="${esc(c.name)}">`:`<span>${esc(c.name)}</span>`):"";return `<tr><td>${new Date(r.date).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</td><td class="recordChoice">${choice}</td><td class="recordMemoCell">${esc(r.memo||"")}</td><td><button class="rowEdit" data-record-edit="${r.id}">編集</button></td></tr>`}).join("")}</tbody></table></div>`:`<div class="empty">このグループには記録がありません。</div>`}`;
   document.getElementById("backRecordGroups").onclick=()=>{recordGroupId=null;render()};
   main.querySelectorAll("[data-record-edit]").forEach(btn=>btn.onclick=()=>{
     const r=data.records.find(x=>String(x.id)===String(btn.dataset.recordEdit));if(!r)return;
     editingRecordId=r.id;
     renderEditRecord();
-  });
-  main.querySelectorAll("[data-record-delete]").forEach(btn=>btn.onclick=()=>{
-    const id=String(btn.dataset.recordDelete);
-    if(!confirm("この記録を削除しますか？"))return;
-    data.records=data.records.filter(r=>String(r.id)!==id);
-    save();
-    render();
   });
 }
 
