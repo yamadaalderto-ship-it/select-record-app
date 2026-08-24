@@ -79,9 +79,3 @@ body,#app,main,.panel,.card,.groupCard,.group-list,.groupItem{background:#E5E5E5
   outline:3px solid #007aff;
   outline-offset:-3px;
 }
-
-/* V26 */
-.recordTableWrap{width:100%;overflow-x:auto}
-.recordTable{width:100%;border-collapse:collapse;table-layout:fixed}
-.recordTable th,.recordTable td{padding:8px 4px;border-bottom:1px solid rgba(0,0,0,.12);text-align:center;vertical-align:middle}
-.recordIcon{width:42px;height:42px;object-fit:contain;display:block;margin:auto}

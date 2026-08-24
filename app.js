@@ -28,12 +28,6 @@ const BUILTIN_CHOICES=[
   ["スタートダッシュ","S3 Ability Opening Gambit.png"],["受け身術","S3 Ability Drop Roller.png"]
 ].map(([name,file])=>({id:"builtin_choice_"+name,name,image:"https://splatoonwiki.org/wiki/Special:Redirect/file/"+encodeURIComponent(file).replace(/%20/g,"_")}));
 
-function resolveSharedIcon(value){
-  if(!value) return null;
-  if(typeof value==="object") return value;
-  return (data.icons||[]).find(ic=>String(ic.id)===String(value))||null;
-}
-
 function applyBuiltins(){
   const oldChoiceByName=new Map(data.choices.map(c=>[c.name,c]));
   data.icons=BUILTIN_ICONS.map(i=>({...i}));
@@ -178,7 +172,7 @@ function renderHome(){
   ${homeFilterIcon?`<div class="activeFilter">アイコンで絞り込み中</div>`:""}
   <div class="sectionTitle">グループ一覧</div>
   ${groups.length?groups.map(g=>`<div class="groupItem">
-    <button class="groupCard" data-g="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(resolveSharedIcon((g||group).icon||((g||group).iconId))?.image||"")}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b></div></button>
+    <button class="groupCard" data-g="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b></div></button>
     <div class="groupActions"><button class="editGroupBtn" data-edit-group="${g.id}">編集</button><button class="deleteGroupBtn" data-delete-group="${g.id}">削除</button></div>
   </div>`).join(""):`<div class="empty">${homeFilterIcon?"このアイコンのグループはありません。":"まだグループがありません。<br>「新しいグループを作る」から始めてください。"}</div>`}`;
   document.getElementById("newGroup").onclick=()=>{screen="createGroup";render()};
@@ -217,18 +211,12 @@ function renderCreateGroup(step=1){
         </button>`).join("")}</div>
       <button class="primary" id="nextGroupStep">次へ</button></section>`;
 
-    main.querySelectorAll("[data-group-icon],[data-edit-icon]").forEach(b=>b.onclick=()=>{
-      const iconId=b.dataset.groupIcon||b.dataset.editIcon;
-      const targetId=window.__editingGroupId||currentGroupId;
-      const g=(data.groups||[]).find(x=>String(x.id)===String(targetId));
-      if(g){
-        g.icon=iconId;
-        g.iconId=iconId;
-        save();
-      }
-      main.querySelectorAll("[data-group-icon],[data-edit-icon]").forEach(x=>x.classList.remove("selected"));
-      b.classList.add("selected");
-    });
+    main.querySelectorAll("[data-group-icon]").forEach(b=>{
+      b.addEventListener("click",()=>{
+        cur.icon=b.dataset.groupIcon;
+        main.querySelectorAll("[data-group-icon]").forEach(x=>x.classList.remove("selected"));
+        b.classList.add("selected");
+      });
     });
 
     main.querySelector("#nextGroupStep").onclick=()=>{
@@ -324,7 +312,7 @@ function renderHistory(){
     let groupsWithRecords=data.groups.filter(g=>data.records.some(r=>r.groupId===g.id));
     if(historyFilterIcon) groupsWithRecords=groupsWithRecords.filter(g=>g.icon===historyFilterIcon);
     groupsWithRecords=sortGroups(groupsWithRecords,historySort);
-    main.innerHTML=`<div class="historyControlRow"><button class="secondary controlBtn" id="historyFilter">絞り込み</button><button class="secondary controlBtn" id="historySort">並び替え</button></div>${historyFilterIcon?`<div class="activeFilter">アイコンで絞り込み中</div>`:""}${groupsWithRecords.length?groupsWithRecords.map(g=>`<button class="historyGroup" data-record-group="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(resolveSharedIcon((g||group).icon||((g||group).iconId))?.image||"")}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件</div></div></button>`).join(""):`<div class="empty">${historyFilterIcon?"このアイコンの記録はありません。":"まだ記録がありません。"}</div>`}`;
+    main.innerHTML=`<div class="historyControlRow"><button class="secondary controlBtn" id="historyFilter">絞り込み</button><button class="secondary controlBtn" id="historySort">並び替え</button></div>${historyFilterIcon?`<div class="activeFilter">アイコンで絞り込み中</div>`:""}${groupsWithRecords.length?groupsWithRecords.map(g=>`<button class="historyGroup" data-record-group="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(g.icon)}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件</div></div></button>`).join(""):`<div class="empty">${historyFilterIcon?"このアイコンの記録はありません。":"まだ記録がありません。"}</div>`}`;
     document.getElementById("historyFilter").onclick=()=>{if(historyFilterIcon){historyFilterIcon=null;render()}else{showIconFilter("history")}};
     document.getElementById("historySort").onclick=()=>showSort("history");
     main.querySelectorAll("[data-record-group]").forEach(b=>b.onclick=()=>{recordGroupId=b.dataset.recordGroup;render()});
@@ -414,51 +402,4 @@ function toggleFilterButton(){
   } catch(e) {}
   if (typeof openFilterPicker === "function") openFilterPicker();
   else if (typeof showFilterPicker === "function") showFilterPicker();
-}
-
-
-function renderRecords(groupId){
-  const g=(data.groups||[]).find(x=>String(x.id)===String(groupId));
-  if(!g){screen="home";return render();}
-  recordGroupId=groupId;
-  const records=(data.records||[]).filter(r=>String(r.groupId)===String(groupId));
-
-  main.innerHTML=`<section class="panel recordPanel">
-    <button class="backToGroups" id="backRecords">‹ ホーム</button>
-    <h2>${esc(g.name||"記録")}</h2>
-    <div class="recordTableWrap">
-      <table class="recordTable">
-        <thead><tr>
-          <th>回数</th><th>アイコン</th><th>メモ</th><th>編集</th><th>削除</th>
-        </tr></thead>
-        <tbody>
-          ${records.map((r,i)=>{
-            const ic=resolveSharedIcon(r.choiceId||r.iconId);
-            return `<tr>
-              <td>${i+1}</td>
-              <td>${ic?.image?`<img class="recordIcon" src="${esc(ic.image)}" alt="">`:esc(ic?.label||r.choiceName||"")}</td>
-              <td>${esc(r.memo||"")}</td>
-              <td><button class="editRecordBtn" data-record-edit="${esc(r.id)}">編集</button></td>
-              <td><button class="deleteRecordBtn" data-record-delete="${esc(r.id)}">削除</button></td>
-            </tr>`;
-          }).join("")}
-        </tbody>
-      </table>
-    </div>
-  </section>`;
-
-  document.getElementById("backRecords").onclick=()=>{screen="home";render();};
-
-  main.querySelectorAll("[data-record-edit]").forEach(btn=>btn.onclick=()=>{
-    editingRecordId=btn.dataset.recordEdit;
-    renderEditRecord();
-  });
-
-  main.querySelectorAll("[data-record-delete]").forEach(btn=>btn.onclick=()=>{
-    const id=btn.dataset.recordDelete;
-    if(!confirm("この記録を削除しますか？")) return;
-    data.records=(data.records||[]).filter(r=>String(r.id)!==String(id));
-    save();
-    renderRecords(groupId);
-  });
 }
