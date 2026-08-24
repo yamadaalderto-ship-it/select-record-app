@@ -80,21 +80,8 @@ body,#app,main,.panel,.card,.groupCard,.group-list,.groupItem{background:#E5E5E5
   outline-offset:-3px;
 }
 
-/* V24 record table */
-.recordTableWrap{overflow-x:auto}
-.recordTable{width:100%;border-collapse:collapse}
-.recordTable th,.recordTable td{padding:8px;border-bottom:1px solid rgba(0,0,0,.12);text-align:center;vertical-align:middle}
-.recordIcon{width:42px;height:42px;object-fit:contain;display:block;margin:auto}
-.deleteRecordBtn{border:1px solid #d33;color:#c22;background:transparent;border-radius:8px;padding:6px 10px}
-.editRecordBtn{border:1px solid #1683ff;color:#1683ff;background:transparent;border-radius:8px;padding:6px 10px}
-
-/* V25: record table five columns */
+/* V26 */
 .recordTableWrap{width:100%;overflow-x:auto}
 .recordTable{width:100%;border-collapse:collapse;table-layout:fixed}
 .recordTable th,.recordTable td{padding:8px 4px;border-bottom:1px solid rgba(0,0,0,.12);text-align:center;vertical-align:middle}
-.recordTable th:nth-child(1),.recordTable td:nth-child(1){width:14%}
-.recordTable th:nth-child(2),.recordTable td:nth-child(2){width:22%}
-.recordTable th:nth-child(3),.recordTable td:nth-child(3){width:26%}
-.recordTable th:nth-child(4),.recordTable td:nth-child(4){width:19%}
-.recordTable th:nth-child(5),.recordTable td:nth-child(5){width:19%}
 .recordIcon{width:42px;height:42px;object-fit:contain;display:block;margin:auto}
