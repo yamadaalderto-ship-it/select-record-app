@@ -28,19 +28,21 @@ const BUILTIN_CHOICES=[
   ["スタートダッシュ","S3 Ability Opening Gambit.png"],["受け身術","S3 Ability Drop Roller.png"]
 ].map(([name,file])=>({id:"builtin_choice_"+name,name,image:"https://splatoonwiki.org/wiki/Special:Redirect/file/"+encodeURIComponent(file).replace(/%20/g,"_")}));
 
-function getGroupLastChoiceTime(groupId){
+function getLastChoiceAt(groupId){
   return (data.records||[])
     .filter(r=>String(r.groupId)===String(groupId))
-    .reduce((m,r)=>Math.max(m,Number(r.createdAt||r.timestamp||r.time||r.dateTime||0)),0);
+    .reduce((max,r)=>Math.max(max,Number(r.createdAt||r.timestamp||r.time||r.dateTime||0)),0);
 }
-function compareExtraGroupSort(a,b,mode){
+function compareAddedSort(a,b,mode){
   if(mode==="icon"){
-    const order=new Map((data.icons||[]).map((ic,i)=>[String(ic.id),i]));
+    const order=new Map((data.icons||[]).map((x,i)=>[String(x.id),i]));
     return (order.get(String(a.iconId||a.icon))??999999)-(order.get(String(b.iconId||b.icon))??999999);
   }
   if(mode==="new"||mode==="old"){
-    const ta=getGroupLastChoiceTime(a.id),tb=getGroupLastChoiceTime(b.id);
-    if(!ta&&!tb)return 0;if(!ta)return 1;if(!tb)return -1;
+    const ta=getLastChoiceAt(a.id),tb=getLastChoiceAt(b.id);
+    if(!ta&&!tb)return 0;
+    if(!ta)return 1;
+    if(!tb)return -1;
     return mode==="new"?tb-ta:ta-tb;
   }
   return null;
@@ -172,6 +174,8 @@ function render(){
 }
 function sortGroups(list, mode){
   return list.slice().sort((a,b)=>{
+    const extra=compareAddedSort(a,b,sortMode);
+    if(extra!==null)return extra;
     if(mode==="name") return a.name.localeCompare(b.name,"ja");
     const at=a.createdAt?new Date(a.createdAt).getTime():0, bt=b.createdAt?new Date(b.createdAt).getTime():0;
     return bt-at;
