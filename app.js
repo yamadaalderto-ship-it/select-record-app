@@ -28,26 +28,6 @@ const BUILTIN_CHOICES=[
   ["スタートダッシュ","S3 Ability Opening Gambit.png"],["受け身術","S3 Ability Drop Roller.png"]
 ].map(([name,file])=>({id:"builtin_choice_"+name,name,image:"https://splatoonwiki.org/wiki/Special:Redirect/file/"+encodeURIComponent(file).replace(/%20/g,"_")}));
 
-function getLastChoiceAt(groupId){
-  return (data.records||[])
-    .filter(r=>String(r.groupId)===String(groupId))
-    .reduce((max,r)=>Math.max(max,Number(r.createdAt||r.timestamp||r.time||r.dateTime||0)),0);
-}
-function compareAddedSort(a,b,mode){
-  if(mode==="icon"){
-    const order=new Map((data.icons||[]).map((x,i)=>[String(x.id),i]));
-    return (order.get(String(a.iconId||a.icon))??999999)-(order.get(String(b.iconId||b.icon))??999999);
-  }
-  if(mode==="new"||mode==="old"){
-    const ta=getLastChoiceAt(a.id),tb=getLastChoiceAt(b.id);
-    if(!ta&&!tb)return 0;
-    if(!ta)return 1;
-    if(!tb)return -1;
-    return mode==="new"?tb-ta:ta-tb;
-  }
-  return null;
-}
-
 function applyBuiltins(){
   const oldIcons=Array.isArray(data.icons)?data.icons:[];
   const oldChoiceByName=new Map((data.choices||[]).map(c=>[c.name,c]));
@@ -172,11 +152,27 @@ function render(){
   else if(screen==="editRecord")renderEditRecord();
   else if(screen==="select")renderSelect();
 }
+function getGroupLastChoiceTime(groupId){
+  return data.records.filter(r=>r.groupId===groupId).reduce((latest,r)=>{
+    const t=Date.parse(r.date||"");
+    return Number.isFinite(t)&&t>latest?t:latest;
+  },0);
+}
 function sortGroups(list, mode){
   return list.slice().sort((a,b)=>{
-    const extra=compareAddedSort(a,b,sortMode);
-    if(extra!==null)return extra;
     if(mode==="name") return a.name.localeCompare(b.name,"ja");
+    if(mode==="icon"){
+      const ai=data.icons.findIndex(i=>String(i.id)===String(a.icon||a.iconId));
+      const bi=data.icons.findIndex(i=>String(i.id)===String(b.icon||b.iconId));
+      return (ai<0?999999:ai)-(bi<0?999999:bi);
+    }
+    if(mode==="new"||mode==="old"){
+      const at=getGroupLastChoiceTime(a.id), bt=getGroupLastChoiceTime(b.id);
+      if(!at&&!bt) return 0;
+      if(!at) return 1;
+      if(!bt) return -1;
+      return mode==="new" ? bt-at : at-bt;
+    }
     const at=a.createdAt?new Date(a.createdAt).getTime():0, bt=b.createdAt?new Date(b.createdAt).getTime():0;
     return bt-at;
   });
@@ -202,7 +198,10 @@ function showSort(kind){
   const current=kind==="home"?homeSort:historySort;
   openChoiceModal("並び替え", [
     {id:"name",label:"50音順",selected:current==="name"},
-    {id:"created",label:"作成日順",selected:current==="created"}
+    {id:"created",label:"作成日順",selected:current==="created"},
+    {id:"icon",label:"アイコン順",selected:current==="icon"},
+    {id:"new",label:"新しい",selected:current==="new"},
+    {id:"old",label:"古い",selected:current==="old"}
   ], item=>{
     if(kind==="home") homeSort=item.id; else historySort=item.id;
     render();
