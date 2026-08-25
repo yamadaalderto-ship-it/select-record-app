@@ -28,6 +28,35 @@ const BUILTIN_CHOICES=[
   ["スタートダッシュ","S3 Ability Opening Gambit.png"],["受け身術","S3 Ability Drop Roller.png"]
 ].map(([name,file])=>({id:"builtin_choice_"+name,name,image:"https://splatoonwiki.org/wiki/Special:Redirect/file/"+encodeURIComponent(file).replace(/%20/g,"_")}));
 
+function getGroupLastChoiceTime(groupId){
+  const rows=(data.records||[]).filter(r=>String(r.groupId)===String(groupId));
+  let latest=0;
+  rows.forEach(r=>{
+    const t=Number(r.createdAt||r.timestamp||r.time||r.dateTime||0);
+    if(t>latest) latest=t;
+  });
+  return latest;
+}
+function sortGroupsByMode(groups,mode){
+  const list=[...(groups||[])];
+  if(mode==="icon"){
+    const order=new Map((data.icons||[]).map((ic,i)=>[String(ic.id),i]));
+    return list.sort((a,b)=>
+      (order.get(String(a.iconId||a.icon))??999999)-
+      (order.get(String(b.iconId||b.icon))??999999));
+  }
+  if(mode==="new"||mode==="old"){
+    return list.sort((a,b)=>{
+      const ta=getGroupLastChoiceTime(a.id),tb=getGroupLastChoiceTime(b.id);
+      if(!ta&&!tb)return 0;
+      if(!ta)return 1;
+      if(!tb)return -1;
+      return mode==="new"?tb-ta:ta-tb;
+    });
+  }
+  return list;
+}
+
 function applyBuiltins(){
   const oldIcons=Array.isArray(data.icons)?data.icons:[];
   const oldChoiceByName=new Map((data.choices||[]).map(c=>[c.name,c]));
@@ -151,6 +180,8 @@ function render(){
   else if(screen==="pickIcon")renderPickIcon();
   else if(screen==="editRecord")renderEditRecord();
   else if(screen==="select")renderSelect();
+
+  bindGroupSortMode();
 }
 function sortGroups(list, mode){
   return list.slice().sort((a,b)=>{
@@ -199,10 +230,18 @@ function openChoiceModal(titleText,items,onPick,options={}){
 }
 function renderHome(){
   let groups=data.groups;
+  groups=sortGroupsByMode(groups,data.groupSortMode||"");
   if(homeFilterIcon) groups=groups.filter(g=>g.icon===homeFilterIcon);
   groups=sortGroups(groups,homeSort);
   main.innerHTML=`<button class="primary" id="newGroup">＋ 新しいグループを作る</button>
-  <div class="homeControlRow"><button class="secondary controlBtn" id="homeFilter">絞り込み</button><button class="secondary controlBtn" id="homeSort">並び替え</button></div>
+  <div class="homeControlRow"><button class="secondary controlBtn" id="homeFilter">絞り込み</button><select id="groupSortMode" class="sortSelect">
+<option value="">並び替え</option>
+<option value="name">名前順</option>
+<option value="created">作成日順</option>
+<option value="icon">アイコン順</option>
+<option value="new">新しい</option>
+<option value="old">古い</option>
+</select><button class="secondary controlBtn" id="homeSort">並び替え</button></div>
   ${homeFilterIcon?`<div class="activeFilter">アイコンで絞り込み中</div>`:""}
   <div class="sectionTitle">グループ一覧</div>
   ${groups.length?groups.map(g=>`<div class="groupItem">
@@ -447,4 +486,15 @@ function toggleFilterButton(){
   } catch(e) {}
   if (typeof openFilterPicker === "function") openFilterPicker();
   else if (typeof showFilterPicker === "function") showFilterPicker();
+}
+
+function bindGroupSortMode(){
+  const el=document.getElementById("groupSortMode");
+  if(!el)return;
+  el.value=data.groupSortMode||"";
+  el.onchange=()=>{
+    data.groupSortMode=el.value;
+    save();
+    render();
+  };
 }
