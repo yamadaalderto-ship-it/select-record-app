@@ -184,7 +184,7 @@ function showIconFilter(kind){
   if(!icons.length){alert("登録されたアイコンがありません。");return}
   const current=kind==="home"?homeFilterIcon:historyFilterIcon;
   openChoiceModal("絞り込み", icons.map(i=>({id:i.id,label:"",image:i.image,selected:i.image===current})), item=>{
-    if(kind==="home") homeFilterIcon=item.image; else historyFilterIcon=item.image;
+    if(kind==="home") homeFilterIcon=String(item.id); else historyFilterIcon=String(item.id);
     render();
   }, {
     clearLabel:"",
@@ -220,7 +220,7 @@ function openChoiceModal(titleText,items,onPick,options={}){
 }
 function renderHome(){
   let groups=data.groups;
-  if(homeFilterIcon) groups=groups.filter(g=>g.icon===homeFilterIcon);
+  if(homeFilterIcon) groups=groups.filter(g=>String(g.icon||g.iconId||"")===String(homeFilterIcon));
   groups=sortGroups(groups,homeSort);
   main.innerHTML=`<button class="primary" id="newGroup">＋ 新しいグループを作る</button>
   <div class="homeControlRow"><button class="secondary controlBtn" id="homeFilter">絞り込み</button><button class="secondary controlBtn" id="homeSort">並び替え</button></div>
@@ -376,7 +376,7 @@ function renderSelect(){
 function renderHistory(){
   if(!recordGroupId){
     let groupsWithRecords=data.groups.filter(g=>data.records.some(r=>r.groupId===g.id));
-    if(historyFilterIcon) groupsWithRecords=groupsWithRecords.filter(g=>g.icon===historyFilterIcon);
+    if(historyFilterIcon) groupsWithRecords=groupsWithRecords.filter(g=>String(g.icon||g.iconId||"")===String(historyFilterIcon));
     groupsWithRecords=sortGroups(groupsWithRecords,historySort);
     main.innerHTML=`<div class="historyControlRow"><button class="secondary controlBtn" id="historyFilter">絞り込み</button><button class="secondary controlBtn" id="historySort">並び替え</button></div>${historyFilterIcon?`<div class="activeFilter">アイコンで絞り込み中</div>`:""}${groupsWithRecords.length?groupsWithRecords.map(g=>`<button class="historyGroup" data-record-group="${g.id}">${g.icon?`<img class="groupIcon groupImage" src="${esc(groupIconImage(g))}" alt="">`:`<div class="groupIcon">📝</div>`}<div><b>${esc(g.name)}</b><div class="muted">${data.records.filter(r=>r.groupId===g.id).length}件</div></div></button>`).join(""):`<div class="empty">${historyFilterIcon?"このアイコンの記録はありません。":"まだ記録がありません。"}</div>`}`;
     document.getElementById("historyFilter").onclick=()=>{if(historyFilterIcon){historyFilterIcon=null;render()}else{showIconFilter("history")}};
